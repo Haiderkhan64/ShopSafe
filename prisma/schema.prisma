@@ -1,0 +1,293 @@
+// This is your Prisma schema file for the E-Commerce Fraud Detection & Business Analytics System
+// Documentation: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums defined first to avoid reference errors
+enum UserRole {
+  ADMIN
+  ANALYST
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  PAYPAL
+  BANK_TRANSFER
+  CRYPTO
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// User management
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Stores hashed password (e.g., bcrypt)
+  name          String?
+  role          UserRole  @default(CUSTOMER)
+  address       String?   // Consider encrypting with pgcrypto or bcryptjs
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  isActive      Boolean   @default(true)
+  orders        Order[]
+  sessions      Session[]
+  cart          Cart? 
+
+  @@map("users")
+}
+
+// Session tracking for user behavior analysis
+model Session {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  deviceInfo    Json?     // Stores browser, OS, device type as JSON
+  ipAddress     String?
+  userAgent     String?
+  startTime     DateTime  @default(now()) @map("start_time")
+  endTime       DateTime? @map("end_time")
+  duration      Int?      // Duration in seconds
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("sessions")
+}
+
+// Product information (complementary to Sanity CMS)
+model Product {
+  id            String    @id @default(cuid())
+  sanityId      String?   @unique  // Reference to Sanity CMS product
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  category      String?
+  stock         Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  orderItems    OrderItem[]
+  // cartItems     CartItem[]
+
+  @@map("products")
+}
+
+// Order management
+model Order {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  status        OrderStatus @default(PENDING)
+  total         Decimal   @db.Decimal(10, 2) @default(0.00)
+  items         OrderItem[]
+  transactions  Transaction[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  version       Int       @default(1)  // For optimistic concurrency control
+
+  @@map("orders")
+}
+
+// Order items
+model OrderItem {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Int
+  price         Decimal   @db.Decimal(10, 2)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// Transaction processing
+model Transaction {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  amount        Decimal   @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  status        TransactionStatus @default(PENDING)
+  metadata      Json?     // Additional payment info as JSON
+  timestamp     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  version       Int       @default(1)  // For optimistic concurrency control
+  fraudFlag     FraudFlag?
+
+  @@index([orderId])
+  @@index([timestamp])
+  @@map("transactions")
+}
+
+// Fraud detection
+model FraudFlag {
+  id             String    @id @default(cuid())
+  transactionId  String    @unique
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+  riskScore      Float     // ML model's risk assessment (0-1)
+  flagged        Boolean   @default(false)
+  isConfirmedFraud Boolean @default(false) // Tracks admin confirmation
+  source         String?   // e.g., "ML_MODEL", "MANUAL"
+  reviewedBy     String?   // Admin who reviewed the flag
+  reviewNotes    String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([flagged])
+  @@index([riskScore])
+  @@map("fraud_flags")
+}
+
+// Data warehouse models for BI and analytics
+model UserDim {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  email         String
+  name          String?
+  region        String?
+  userType      String?
+  salesFacts    SalesFact[]
+
+  @@index([region])
+  @@map("user_dim")
+}
+
+model ProductDim {
+  id            String    @id @default(cuid())
+  productId     String    @unique
+  name          String
+  category      String?
+  price         Decimal   @db.Decimal(10, 2)
+  salesFacts    SalesFact[]
+
+  @@index([category])
+  @@map("product_dim")
+}
+
+model TimeDim {
+  id            String    @id @default(cuid())
+  timestamp     DateTime  @unique
+  day           Int
+  month         Int
+  quarter       Int
+  year          Int
+  isWeekend     Boolean
+  isHoliday     Boolean   @default(false)
+  salesFacts    SalesFact[]
+
+  @@index([day])
+  @@index([month])
+  @@index([year])
+  @@map("time_dim")
+}
+
+model SalesFact {
+  id            String    @id @default(cuid())
+  transactionId String    @unique
+  userId        String
+  productId     String
+  amount        Decimal   @db.Decimal(10, 2)
+  timestamp     DateTime
+  userDimId     String
+  userDim       UserDim   @relation(fields: [userDimId], references: [id])
+  productDimId  String
+  productDim    ProductDim @relation(fields: [productDimId], references: [id])
+  timeDimId     String
+  timeDim       TimeDim   @relation(fields: [timeDimId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([timestamp])
+  @@map("sales_facts")
+}
+
+// Audit logs for transactions
+model TransactionLog {
+  id            String    @id @default(cuid())
+  transactionId String
+  action        String    // e.g., "INSERT", "UPDATE", "DELETE"
+  oldValues     Json?
+  newValues     Json?
+  userId        String?   // User who performed the action
+  timestamp     DateTime  @default(now())
+
+  @@index([transactionId])
+  @@index([timestamp])
+  @@map("transaction_logs")
+}
+
+// System configuration
+model SystemConfig {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  value         String
+  description   String?
+  updatedBy     String?
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}
+
+
+
+
+
+
+
+
+
+// New
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("carts")
+}
+
+// In your schema.prisma file
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}

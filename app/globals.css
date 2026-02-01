@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.129 0.042 264.695);
+    --border: oklch(0.929 0.013 255.508);
+    --input: oklch(0.929 0.013 255.508);
+    --ring: oklch(0.704 0.04 256.788);
+    /* Add other root variables here */
+  }
+
+  .dark {
+    --background: oklch(0.129 0.042 264.695);
+    --foreground: oklch(0.984 0.003 247.858);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.551 0.027 264.364);
+    /* Add other dark mode variables here */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-background text-foreground min-h-screen;
+  }
+
+  #__next,
+  main {
+    @apply h-full;
+  }
+}
+/* 
+@layer components {
+  .topbar {
+    @apply fixed top-0 z-30 flex w-full items-center justify-between py-3 px-6;
+    background: linear-gradient(160deg, #000000, #7d65b0);
+  }
+
+  .logo-text {
+    @apply text-2xl font-bold text-gray-100;
+  }
+
+  .user-btn {
+    @apply ml-2.5;
+  }
+
+  @media (max-width: 480px) {
+    .logo-text {
+      @apply hidden;
+    }
+  }
+} */
+
+/* Additional utility classes for height handling */
+@layer utilities {
+  .h-screen-safe {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}

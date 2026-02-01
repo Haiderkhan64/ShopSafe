@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg">
+<!-- Definitions -->
+<defs>
+<linearGradient id="purpleGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#674ea7"/>
+<stop offset="100%" stop-color="#574095"/>
+</linearGradient>
+</defs>
+<!-- Background -->
+<rect fill="none" height="300" rx="10" width="500" x="0" y="0"/>
+<!-- Simple Shopping Bag Outline -->
+<path d="M170 130 L170 190 C170 200 180 200 180 200 L320 200 C320 200 330 200 330 190 L330 130" fill="none" stroke="#574095" stroke-linecap="round" stroke-width="10"/>
+<!-- Bag Handles -->
+<path d="M200 130 L200 100 C200 85 215 85 225 85 L275 85 C285 85 300 85 300 100 L300 130" fill="none" stroke="#574095" stroke-linecap="round" stroke-width="10"/>
+<!-- Shield Element (Minimal) -->
+<path d="M250 110 L220 125 L220 160 C220 180 235 190 250 200 C265 190 280 180 280 160 L280 125 L250 110Z" fill="url(#purpleGradient)"/>
+<!-- Minimal Checkmark -->
+<path d="M235 155 L245 165 L265 145" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"/>
+<!-- Text Element (Netflix/Amazon style) -->
+<text fill="#574095" font-family="Arial, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" x="250" y="245">ShopSafe</text>
+</svg>
