@@ -32,6 +32,13 @@ export const productType = defineType({
       },
     }),
     defineField({
+  name: "discount",
+  title: "Discount (%)",
+  type: "number",
+  description: "Enter a percentage discount for this product (0–100). Leave empty for no discount.",
+  validation: (Rule) => Rule.min(0).max(100),
+}),
+    defineField({
       name: "description",
       title: "Description",
       type: "blockContent",
