@@ -1,18 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   devIndicators: false,
   images: {
-    domains: ['cdn.sanity.io'],
-    // Alternatively, you can use the newer remotePatterns config:
-    // remotePatterns: [
-    //   {
-    //     protocol: 'https',
-    //     hostname: 'cdn.sanity.io',
-    //     pathname: '/images/**',
-    //   },
-    // ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.sanity.io",
+        // Restrict to image assets only — blocks attempts to proxy arbitrary
+        // CDN paths through Next.js Image Optimization.
+        pathname: "/images/**",
+      },
+    ],
   },
 };
 
