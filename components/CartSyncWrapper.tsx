@@ -1,4 +1,3 @@
-// components/CartSyncWrapper.tsx
 'use client';
 
 import { useCartSync } from '@/hooks/useCartSync';
