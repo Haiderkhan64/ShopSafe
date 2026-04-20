@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("LOCAL_DATABASE_URL")
 }
 
 // Enums defined first to avoid reference errors
@@ -43,17 +43,19 @@ enum TransactionStatus {
 // User management
 model User {
   id            String    @id @default(cuid())
+  clerkId       String?   @unique @map("clerkId")  // FIX 8: decoupled from Clerk ID
   email         String    @unique
-  password      String?   // Stores hashed password (e.g., bcrypt)
+  password      String?
   name          String?
   role          UserRole  @default(CUSTOMER)
-  address       String?   // Consider encrypting with pgcrypto or bcryptjs
+  address       String?
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   isActive      Boolean   @default(true)
+  hasCompletedOnboarding Boolean @default(false)
   orders        Order[]
   sessions      Session[]
-  cart          Cart? 
+  cart          Cart?
 
   @@map("users")
 }
@@ -290,4 +292,14 @@ model CartItem {
   @@index([cartId])
   @@index([productId])
   @@map("cart_items")
+}
+
+
+model ProcessedWebhookEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique @map("event_id")
+  eventType   String   @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("processed_webhook_events")
 }
