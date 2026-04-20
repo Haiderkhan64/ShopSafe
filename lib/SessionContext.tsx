@@ -1,23 +1,13 @@
 "use client";
 
-// // // Define the DeviceInfo interface before imports
 export interface DeviceInfo {
-  browser: {
-    name: string;
-    version: string;
-  };
-  os: {
-    name: string;
-    version: string;
-  };
-  device: {
-    type: string;
-    vendor: string | null;
-    model: string | null;
-  };
+  browser: { name: string; version: string };
+  os: { name: string; version: string };
+  device: { type: string; vendor: string | null; model: string | null };
 }
 
 import { useClerk } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { createContext, useContext, useEffect, useCallback } from "react";
 import { useDeviceInfo } from "@/hooks/useDeviceInfo";
 
@@ -31,28 +21,23 @@ export const SessionProvider = ({
   children: React.ReactNode;
 }) => {
   const clerk = useClerk();
+  // `clerk.loaded` is not part of the public Clerk API — it is always
+  // `undefined`, which is falsy, so the effect that calls trackSession never
+  // fired.  `isLoaded` from useAuth() is the documented way to know when the
+  // Clerk client has finished initialising.
+  const { isLoaded } = useAuth();
   const deviceInfo = useDeviceInfo();
 
-  // const trackSession = useCallback(async () => {
-  //   if (!clerk.user || !deviceInfo) {
-  //     console.log("trackSession skipped: ", {
-  //       user: !!clerk.user,
-  //       deviceInfo: !!deviceInfo,
-  //     });
-  //     return;
-  //   }
-
   const trackSession = useCallback(async () => {
-  if (!clerk.user || !clerk.session || !deviceInfo) {
-    console.log("trackSession skipped: ", {
-      user: !!clerk.user,
-      session: !!clerk.session,
-      deviceInfo: !!deviceInfo,
-    });
-    return;
-  }
+    if (!clerk.user || !clerk.session || !deviceInfo) {
+      console.log("trackSession skipped:", {
+        user: !!clerk.user,
+        session: !!clerk.session,
+        deviceInfo: !!deviceInfo,
+      });
+      return;
+    }
 
-    // Create a safe copy with defaults instead of validation that can fail
     const safeDeviceInfo: DeviceInfo = {
       browser: {
         name: deviceInfo.browser?.name ?? "Unknown",
@@ -70,22 +55,13 @@ export const SessionProvider = ({
     };
 
     try {
-      console.log("trackSession called with: ", {
-        userId: clerk.user.id,
-        deviceInfo: safeDeviceInfo,
-      });
-
-      // Get token from the session instead
-      // const token = await clerk.session?.getToken();
-      // if (!token) {
-      //   throw new Error("No authentication token available");
-      // }
-
       const token = await clerk.session.getToken();
-        if (!token) {
-          console.warn("No session token available yet, skipping session tracking");
-          return;
-        }
+      if (!token) {
+        console.warn(
+          "No session token available yet, skipping session tracking"
+        );
+        return;
+      }
 
       const response = await fetch("/api/track-session", {
         method: "POST",
@@ -118,10 +94,9 @@ export const SessionProvider = ({
       const data = await response.json();
       console.log("Session updated:", data);
     } catch (error: unknown) {
-      // Use a more specific error handling approach
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      
       console.error("trackSession failed:", {
         message: errorMessage,
         stack: errorStack,
@@ -131,18 +106,15 @@ export const SessionProvider = ({
     }
   }, [clerk.user, clerk.session, deviceInfo]);
 
-  // useEffect(() => {
-  //   if (clerk.user && deviceInfo) {
-  //     trackSession();
-  //   }
-  // }, [clerk.user, deviceInfo, trackSession]);
-
   useEffect(() => {
-  if (clerk.loaded && clerk.user && clerk.session && deviceInfo) {
-    trackSession();
-  }
-}, [clerk.loaded, clerk.user, clerk.session, deviceInfo, trackSession]);
-
+    // depend on `isLoaded` (from useAuth) instead of `clerk.loaded`
+    // (undefined, non-reactive).  Without this fix, no sessions were ever
+    // tracked because the guard was `clerk.loaded && ...` which is
+    // `undefined && ...` = false on every render.
+    if (isLoaded && clerk.user && clerk.session && deviceInfo) {
+      trackSession();
+    }
+  }, [isLoaded, clerk.user, clerk.session, deviceInfo, trackSession]);
 
   return (
     <SessionContext.Provider value={{ trackSession }}>

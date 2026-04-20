@@ -1,38 +1,31 @@
-// import "@/app/(auth)/style.css";
-// import Image from "next/image";
-// import { Suspense } from "react";
-// import Loading from "./loading";
-// import { ClerkProvider } from "@clerk/nextjs";
-// import { shadesOfPurple } from "@clerk/themes";
-
-// export default function AuthLayout({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) {
-//   return (
-//     <ClerkProvider
-//       appearance={{
-//         baseTheme: shadesOfPurple,
-//       }}
-//     >
-//       <div className="auth-container">
-//         <nav className="header">
-//           <Image src="/next.svg" alt="Logo" width={220} height={220} />
-//         </nav>
-//         <Suspense fallback={<Loading />}>
-//           <main className="main-auth">{children}</main>
-//         </Suspense>
-//       </div>
-//     </ClerkProvider>
-//   );
-// }
-
 import Image from "next/image";
 import { Suspense } from "react";
 import Loading from "./loading";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Sparkles, Shield, Lock, Zap } from "lucide-react";
+import { Sparkles, Shield, Zap } from "lucide-react";
+
+const AUTH_PARTICLES = [
+  { left: "5%",  top: "10%", delay: "0.0s", duration: "3.5s" },
+  { left: "15%", top: "75%", delay: "0.5s", duration: "4.0s" },
+  { left: "25%", top: "40%", delay: "1.0s", duration: "4.5s" },
+  { left: "35%", top: "90%", delay: "1.5s", duration: "5.0s" },
+  { left: "45%", top: "20%", delay: "2.0s", duration: "3.8s" },
+  { left: "55%", top: "60%", delay: "2.5s", duration: "4.2s" },
+  { left: "65%", top: "5%",  delay: "0.3s", duration: "4.8s" },
+  { left: "72%", top: "45%", delay: "0.8s", duration: "5.5s" },
+  { left: "82%", top: "80%", delay: "1.3s", duration: "3.6s" },
+  { left: "90%", top: "30%", delay: "1.8s", duration: "4.3s" },
+  { left: "10%", top: "55%", delay: "0.2s", duration: "5.2s" },
+  { left: "20%", top: "15%", delay: "0.7s", duration: "3.9s" },
+  { left: "30%", top: "70%", delay: "1.2s", duration: "4.6s" },
+  { left: "42%", top: "35%", delay: "1.7s", duration: "5.1s" },
+  { left: "52%", top: "85%", delay: "2.2s", duration: "3.7s" },
+  { left: "62%", top: "50%", delay: "0.4s", duration: "4.4s" },
+  { left: "78%", top: "22%", delay: "0.9s", duration: "5.3s" },
+  { left: "88%", top: "65%", delay: "1.4s", duration: "3.5s" },
+  { left: "95%", top: "12%", delay: "1.9s", duration: "4.7s" },
+  { left: "48%", top: "95%", delay: "2.4s", duration: "5.0s" },
+] as const;
 
 export default function AuthLayout({
   children,
@@ -99,16 +92,6 @@ export default function AuthLayout({
             border: "2px solid rgba(139, 92, 246, 0.3)",
             position: "relative",
             overflow: "hidden",
-            "&:hover": {
-              backgroundPosition: "100% 0",
-              transform: "translateY(-3px) scale(1.02)",
-              boxShadow:
-                "0 20px 40px -10px rgba(107, 70, 193, 0.6), 0 0 30px rgba(139, 92, 246, 0.5)",
-              borderColor: "#FFD700",
-            },
-            "&:active": {
-              transform: "translateY(-1px) scale(0.98)",
-            },
           },
           socialButtonsBlockButton: {
             background: "hsl(var(--background) / 0.8)",
@@ -120,12 +103,6 @@ export default function AuthLayout({
             padding: "0.875rem 1.5rem",
             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
-            "&:hover": {
-              background: "hsl(var(--background))",
-              borderColor: "#c084fc",
-              transform: "translateY(-3px) scale(1.02)",
-              boxShadow: "0 10px 20px -5px rgba(107, 70, 193, 0.3)",
-            },
           },
           socialButtonsBlockButtonText: {
             color: "#574095",
@@ -155,17 +132,6 @@ export default function AuthLayout({
             color: "hsl(var(--foreground))",
             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             boxShadow: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.03)",
-            "&:focus": {
-              borderColor: "#6B46C1",
-              background: "hsl(var(--background))",
-              boxShadow:
-                "0 0 0 4px rgba(107, 70, 193, 0.15), inset 0 2px 4px 0 rgba(0, 0, 0, 0.03)",
-              outline: "none",
-              transform: "scale(1.01)",
-            },
-            "&:hover": {
-              borderColor: "#c084fc",
-            },
           },
           formFieldLabel: {
             color: "hsl(var(--foreground))",
@@ -180,11 +146,6 @@ export default function AuthLayout({
             textDecoration: "none",
             fontSize: "0.9375rem",
             transition: "all 0.2s ease",
-            "&:hover": {
-              color: "#574095",
-              textDecoration: "underline",
-              textUnderlineOffset: "3px",
-            },
           },
           footerActionLink: {
             color: "#6B46C1",
@@ -192,11 +153,6 @@ export default function AuthLayout({
             textDecoration: "none",
             fontSize: "1rem",
             transition: "all 0.2s ease",
-            "&:hover": {
-              color: "#574095",
-              textDecoration: "underline",
-              textUnderlineOffset: "3px",
-            },
           },
           footer: {
             background: "transparent",
@@ -223,10 +179,6 @@ export default function AuthLayout({
             fontSize: "1.5rem",
             background: "hsl(var(--input))",
             color: "hsl(var(--foreground))",
-            "&:focus": {
-              borderColor: "#6B46C1",
-              boxShadow: "0 0 0 3px rgba(107, 70, 193, 0.2)",
-            },
           },
         },
       }}
@@ -240,7 +192,6 @@ export default function AuthLayout({
 
         {/* Animated Orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Purple Orb 1 */}
           <div
             className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 dark:opacity-30 blur-3xl animate-pulse"
             style={{
@@ -248,7 +199,6 @@ export default function AuthLayout({
               animationDuration: "6s",
             }}
           />
-          {/* Purple Orb 2 */}
           <div
             className="absolute top-1/4 right-1/4 w-64 h-64 rounded-full opacity-15 dark:opacity-25 blur-3xl animate-pulse"
             style={{
@@ -257,7 +207,6 @@ export default function AuthLayout({
               animationDelay: "2s",
             }}
           />
-          {/* Gold Orb */}
           <div
             className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full opacity-15 dark:opacity-25 blur-3xl animate-pulse"
             style={{
@@ -266,7 +215,6 @@ export default function AuthLayout({
               animationDelay: "1s",
             }}
           />
-          {/* Small accent orbs */}
           <div
             className="absolute top-1/3 left-1/4 w-32 h-32 rounded-full opacity-10 dark:opacity-20 blur-2xl animate-pulse"
             style={{
@@ -277,17 +225,17 @@ export default function AuthLayout({
           />
         </div>
 
-        {/* Floating Particles */}
+        {/* Floating Particles — deterministic positions avoid SSR/client hydration mismatch */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {AUTH_PARTICLES.map((p, i) => (
             <div
               key={i}
               className="absolute w-1 h-1 bg-purple-400/30 dark:bg-purple-400/50 rounded-full animate-pulse"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-                animationDuration: `${3 + Math.random() * 4}s`,
+                left: p.left,
+                top: p.top,
+                animationDelay: p.delay,
+                animationDuration: p.duration,
               }}
             />
           ))}
@@ -298,9 +246,7 @@ export default function AuthLayout({
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-center items-center">
               <div className="relative group">
-                {/* Glow effect behind logo */}
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-purple-400 rounded-full blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
-
                 <div className="relative transition-all duration-500 hover:scale-105">
                   <Image
                     src="/next.svg"
@@ -325,11 +271,10 @@ export default function AuthLayout({
           </div>
         </nav>
 
-        {/* Main Content - Centered Vertically */}
+        {/* Main Content */}
         <Suspense fallback={<Loading />}>
           <main className="relative z-10 flex justify-center items-center px-4 flex-1">
             <div className="w-full max-w-md">
-              {/* Decorative Elements */}
               <div
                 className="absolute -top-8 -left-8 w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full blur-2xl opacity-20 dark:opacity-30 animate-pulse"
                 style={{ animationDuration: "4s" }}
@@ -338,7 +283,6 @@ export default function AuthLayout({
                 className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-2xl opacity-20 dark:opacity-30 animate-pulse"
                 style={{ animationDuration: "5s", animationDelay: "1s" }}
               />
-
               {children}
             </div>
           </main>
@@ -353,9 +297,7 @@ export default function AuthLayout({
                   <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-foreground">
-                    SSL Encrypted
-                  </p>
+                  <p className="text-xs font-bold text-foreground">SSL Encrypted</p>
                 </div>
               </div>
 
@@ -364,9 +306,7 @@ export default function AuthLayout({
                   <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-foreground">
-                    Instant Access
-                  </p>
+                  <p className="text-xs font-bold text-foreground">Instant Access</p>
                 </div>
               </div>
 

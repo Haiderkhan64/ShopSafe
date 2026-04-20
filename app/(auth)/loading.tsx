@@ -1,56 +1,53 @@
-import { Sparkles, Shield, Lock } from "lucide-react";
+import { Shield, Lock } from "lucide-react";
+
 
 export default function Loading() {
   return (
-    <div className="flex flex-col justify-center items-center min-h-[400px] relative">
-      {/* Main Loading Animation */}
-      <div className="relative">
-        {/* Outer rotating ring with gradient */}
+    <div className="flex flex-col items-center justify-center min-h-[320px]">
+      {/* Spinner */}
+      <div
+        className="relative w-24 h-24"
+        role="status"
+        aria-label="Loading, securing your session"
+      >
+        {/* Rotating gradient ring */}
         <div
-          className="absolute inset-0 w-24 h-24 rounded-full animate-spin"
+          className="absolute inset-0 rounded-full animate-spin"
           style={{
             background:
-              "linear-gradient(135deg, #574095 0%, #6B46C1 50%, #8B5CF6 100%)",
-            animationDuration: "2s",
-            mask: "radial-gradient(farthest-side, transparent calc(100% - 4px), white calc(100% - 3px))",
+              "conic-gradient(from 0deg, #574095 0%, #8B5CF6 65%, transparent 100%)",
+            animationDuration: "1.4s",
+            animationTimingFunction: "linear",
             WebkitMask:
               "radial-gradient(farthest-side, transparent calc(100% - 4px), white calc(100% - 3px))",
+            mask: "radial-gradient(farthest-side, transparent calc(100% - 4px), white calc(100% - 3px))",
           }}
         />
 
-        {/* Middle pulsing circle */}
+        {/* Inner icon circle */}
         <div
-          className="absolute inset-2 w-20 h-20 rounded-full opacity-30 animate-ping"
-          style={{
-            background: "linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)",
-            animationDuration: "2s",
-          }}
-        />
-
-        {/* Inner solid circle with icon */}
-        <div
-          className="absolute inset-4 w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
+          className="absolute inset-[6px] rounded-full flex items-center justify-center shadow-lg"
           style={{
             background: "linear-gradient(135deg, #574095 0%, #6B46C1 100%)",
           }}
         >
-          <Shield className="w-8 h-8 text-white animate-pulse" />
+          <Shield className="w-7 h-7 text-white animate-pulse" style={{ animationDuration: "2s" }} />
         </div>
       </div>
 
-      {/* Loading Text */}
-      <div className="mt-32 text-center space-y-2">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-purple-700 via-purple-600 to-purple-500 bg-clip-text text-transparent animate-pulse">
+      {/* Text — mt-10 (was mt-32, a bug: spinner is 96px tall, not 300px) */}
+      <div className="mt-10 text-center space-y-1.5">
+        <p className="text-base font-bold bg-gradient-to-r from-purple-700 via-purple-600 to-purple-500 bg-clip-text text-transparent">
           Securing Your Session
-        </h3>
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-          <Lock className="w-4 h-4" />
+        </p>
+        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <Lock className="w-3 h-3" />
           <span className="font-semibold">End-to-end encrypted</span>
         </div>
       </div>
 
-      {/* Animated dots */}
-      <div className="flex gap-2 mt-6">
+      {/* Bounce dots */}
+      <div className="flex gap-2 mt-5" aria-hidden="true">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
@@ -58,36 +55,7 @@ export default function Loading() {
             style={{
               background: "linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%)",
               animationDelay: `${i * 0.15}s`,
-              animationDuration: "0.8s",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Background glow effect */}
-      <div className="absolute inset-0 -z-10 flex items-center justify-center">
-        <div
-          className="w-96 h-96 rounded-full opacity-20 blur-3xl animate-pulse"
-          style={{
-            background: "linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)",
-            animationDuration: "3s",
-          }}
-        />
-      </div>
-
-      {/* Floating sparkles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(8)].map((_, i) => (
-          <Sparkles
-            key={i}
-            className="absolute text-purple-400 animate-pulse"
-            size={16}
-            style={{
-              left: `${20 + i * 10}%`,
-              top: `${30 + (i % 3) * 20}%`,
-              animationDelay: `${i * 0.3}s`,
-              animationDuration: "2s",
-              opacity: 0.3,
+              animationDuration: "0.9s",
             }}
           />
         ))}
