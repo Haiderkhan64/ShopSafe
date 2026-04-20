@@ -11,29 +11,40 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 
-const sortOptions = [
-  { label: "Price: Low to High", value: "price-asc" },
+export const sortOptions = [
+  { label: "Price: Low to High", value: "price-asc"  },
   { label: "Price: High to Low", value: "price-desc" },
-  { label: "Newest First", value: "newest" },
-  { label: "Best Selling", value: "popular" },
-];
+  { label: "Newest First",       value: "newest"     },
+  { label: "Best Selling",       value: "popular"    },
+] as const;
+
+export type SortValue = (typeof sortOptions)[number]["value"];
+
+// export this helper so server components (page.tsx, category page, etc.)
+// can read the sort param and pass it down to the data-fetching layer.
+export function getSortFromParams(params: URLSearchParams): SortValue | undefined {
+  const v = params.get("sort");
+  return sortOptions.find((o) => o.value === v)?.value;
+}
 
 export function OrderBy() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSort = searchParams.get("sort") || "";
-  
+
   const [selectedSort, setSelectedSort] = useState(
-    sortOptions.find(opt => opt.value === currentSort) || undefined
+    sortOptions.find((opt) => opt.value === currentSort) || undefined
   );
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleSortChange = (option: typeof sortOptions[0]) => {
+  const handleSortChange = (option: (typeof sortOptions)[number]) => {
     setSelectedSort(option);
     setIsOpen(false);
-    
+
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", option.value);
+    // Now the sort value is part of the URL and page.tsx / category page read
+    // it via getSortFromParams and pass it to the Sanity query helpers.
     router.push(`?${params.toString()}`);
   };
 

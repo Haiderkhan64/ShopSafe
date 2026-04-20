@@ -1,91 +1,3 @@
-// import NoProductsFound from "@/components/NoProductsFound";
-// import ProductGrid from "@/components/ProductGrid";
-// import { searchProductsByName } from "@/sanity/lib/products/searchProductsByName";
-// import { Search, Sparkles } from "lucide-react";
-// import type { FC } from "react";
-
-// interface SearchParams {
-//   searchParams: Promise<{
-//     query: string;
-//   }>;
-// }
-
-// const SearchPage: FC<SearchParams> = async ({
-//   searchParams,
-// }): Promise<React.ReactElement> => {
-//   const { query } = await searchParams;
-//   const products = await searchProductsByName(query);
-
-//   if (!products.length) {
-//     return <NoProductsFound />;
-//   }
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-indigo-50/20">
-//       <div className="max-w-[1650px] mx-auto px-4 py-8 md:py-12">
-//         {/* Search Header */}
-//         <div className="mb-8 md:mb-12">
-//           <div className="flex items-center justify-center gap-3 mb-4">
-//             <div
-//               className="p-3 rounded-xl shadow-lg"
-//               style={{ background: 'linear-gradient(135deg, #574095 0%, #6B46C1 100%)' }}
-//             >
-//               <Search className="w-6 h-6 text-white" />
-//             </div>
-//             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-//               Search Results
-//             </h1>
-//           </div>
-
-//           {/* Search Query Display */}
-//           <div className="flex items-center justify-center gap-2 flex-wrap">
-//             <p className="text-gray-600 text-lg">
-//               Showing results for
-//             </p>
-//             <span
-//               className="text-xl md:text-2xl font-bold text-transparent bg-clip-text px-3 py-1 rounded-lg"
-//               style={{
-//                 backgroundImage: 'linear-gradient(90deg, #574095 0%, #6B46C1 100%)',
-//                 backgroundColor: '#F3E8FF'
-//               }}
-//             >
-//               "{query}"
-//             </span>
-//           </div>
-
-//           {/* Results Count Badge */}
-//           <div className="flex justify-center mt-4">
-//             <div
-//               className="inline-flex items-center gap-2 px-4 py-2 rounded-full shadow-md"
-//               style={{ background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)' }}
-//             >
-//               <Sparkles className="w-4 h-4" style={{ color: '#D97706' }} />
-//               <span className="text-sm font-semibold" style={{ color: '#92400E' }}>
-//                 {products.length} {products.length === 1 ? 'Product' : 'Products'} Found
-//               </span>
-//             </div>
-//           </div>
-
-//           {/* Decorative Line */}
-//           <div className="flex justify-center mt-6">
-//             <div
-//               className="h-1 w-24 rounded-full"
-//               style={{ background: 'linear-gradient(90deg, #574095 0%, #6B46C1 100%)' }}
-//             />
-//           </div>
-//         </div>
-
-//         {/* Product Grid */}
-//         <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6 border border-gray-100">
-//           <ProductGrid products={products} />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default SearchPage;
-
 import NoProductsFound from "@/components/NoProductsFound";
 import ProductGrid from "@/components/ProductGrid";
 import { searchProductsByName } from "@/sanity/lib/products/searchProductsByName";
@@ -178,7 +90,7 @@ const SearchPage: FC<SearchParams> = async ({
                   backgroundColor: "#F3E8FF",
                 }}
               >
-                "{query}"
+                 &quot;{query}&quot;
               </span>
             </div>
           </div>
@@ -306,7 +218,7 @@ const SearchPage: FC<SearchParams> = async ({
         <div className="mt-12 text-center">
           <div className="inline-flex flex-col items-center gap-4 px-8 py-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-2xl border-2 border-purple-200 dark:border-purple-700 shadow-lg">
             <p className="text-gray-700 dark:text-gray-300 font-medium">
-              Can't find what you're looking for?
+              Can&apos;t find what you&apos;re looking for?
             </p>
             <Link
               href="/"

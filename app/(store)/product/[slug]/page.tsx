@@ -1,15 +1,17 @@
-import AddToBasketButton from "@/components/AddToBasketButton";
-import AddToButton from "@/components/AddToButtons";
 import ProductDescriptionToggle from "@/components/ProductDescriptionToggle";
+import { getEffectivePrice } from "@/lib/getEffectivePrice";
 import { imageUrl } from "@/lib/imageUrl";
 import { getProductBySlug } from "@/sanity/lib/products/getProductBySlug";
-import { PortableText } from "next-sanity";
+import type { PortableTextBlock } from "next-sanity";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { Sparkles } from "lucide-react";
+import { REVALIDATE_PRODUCT_PAGE_SECONDS } from "@/lib/constants";
+import ProductActions from "@/components/ProductActions";
 
-// Static route optimization
-export const dynamic = "force-static";
-export const revalidate = 800;
+
+
+export const revalidate = REVALIDATE_PRODUCT_PAGE_SECONDS;
 
 const ProductPage = async ({
   params,
@@ -24,11 +26,11 @@ const ProductPage = async ({
   }
 
   const isOutOfStock = product.stock != null && product.stock <= 0;
+  const { discountedPrice, originalPrice, hasDiscount, effectiveDiscount } =
+    getEffectivePrice(product);
 
-  // Safely handle the case where product.image might be undefined
   const imageSrc = product.image ? imageUrl(product.image).url() : null;
 
-  // Generate a proper blur placeholder if image exists
   const blurDataURL = product.image
     ? imageUrl(product.image).width(20).quality(20).blur(50).url()
     : null;
@@ -63,7 +65,6 @@ const ProductPage = async ({
                 isOutOfStock ? "opacity-60" : "hover:scale-[1.02]"
               }`}
             >
-              {/* Background gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-slate-900/5 to-transparent dark:from-purple-900/10 dark:to-transparent pointer-events-none z-10" />
 
               {imageSrc ? (
@@ -112,7 +113,17 @@ const ProductPage = async ({
                 </div>
               )}
 
-              {/* Stock badge for in-stock items */}
+              {hasDiscount && (
+                <div className="absolute top-4 left-4 z-20">
+                  <div className="flex items-center gap-1 px-3 py-2 rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-r from-yellow-400 to-orange-400 dark:from-yellow-500 dark:to-orange-500">
+                    <Sparkles className="w-4 h-4 text-yellow-900 dark:text-yellow-950" />
+                    <span className="text-sm font-bold text-yellow-900 dark:text-yellow-950">
+                      {effectiveDiscount}% OFF
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {!isOutOfStock && product.stock != null && (
                 <div className="absolute top-4 right-4 z-20">
                   <span className="inline-block px-4 py-2 bg-green-500 dark:bg-green-600 text-white text-sm font-semibold rounded-full shadow-lg">
@@ -126,7 +137,6 @@ const ProductPage = async ({
           {/* Product Details Section */}
           <div className="flex flex-col justify-between space-y-8">
             <div className="space-y-6">
-              {/* Product Title */}
               <div className="space-y-2">
                 <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                   {product.name}
@@ -134,24 +144,33 @@ const ProductPage = async ({
                 <div className="h-1 w-20 rounded-full bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-500 dark:to-purple-600" />
               </div>
 
-              {/* Price Display */}
-              <div className="flex items-baseline gap-3">
-                <span className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
-                  ${product.price?.toFixed(2)}
-                </span>
-                <span className="text-gray-500 dark:text-gray-400 text-lg">
-                  USD
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
+                    ${discountedPrice.toFixed(2)}
+                  </span>
+                  {hasDiscount && (
+                    <span className="text-2xl line-through text-gray-400 dark:text-gray-500">
+                      ${originalPrice.toFixed(2)}
+                    </span>
+                  )}
+                  <span className="text-gray-500 dark:text-gray-400 text-lg">
+                    USD
+                  </span>
+                </div>
+                {hasDiscount && (
+                  <span className="inline-block px-3 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-sm font-bold rounded-full">
+                    You save ${(originalPrice - discountedPrice).toFixed(2)} ({effectiveDiscount}% OFF)
+                  </span>
+                )}
               </div>
 
-              {/* Product Description */}
               <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed">
                 <ProductDescriptionToggle
-                  description={product.description || []}
-                  productId={product._id}
+                  description={(product.description as PortableTextBlock[]) || []}
                 />
               </div>
-              {/* Features/Benefits Section */}
+
               <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-900/30 rounded-xl border border-purple-100 dark:border-purple-800 transition-colors duration-300">
                   <svg
@@ -192,16 +211,9 @@ const ProductPage = async ({
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="space-y-4 pt-8 border-t border-gray-200 dark:border-gray-700">
-              <div>
-                <AddToButton product={product} />
-              </div>
-              <div className="transform transition-all duration-300 hover:scale-[1.02]">
-                <AddToBasketButton product={product} />
-              </div>
+              <ProductActions product={product} disabled={isOutOfStock} />
 
-              {/* Trust Badges */}
               <div className="flex items-center justify-center gap-6 pt-6">
                 <div className="text-center group">
                   <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">

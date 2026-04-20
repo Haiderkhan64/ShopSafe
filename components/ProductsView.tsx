@@ -8,11 +8,13 @@ import { OrderBy } from "./OrderBy";
 interface ProductsViewProps {
   products: Product[];
   categories: Category[];
+  discountPercent?: number;  // ← add this
 }
 
 const ProductsView: FC<ProductsViewProps> = ({
   products,
   categories,
+  discountPercent = 0,
 }): ReactElement => {
   return (
     <div className="w-full h-full p-4 flex flex-col">
@@ -24,7 +26,7 @@ const ProductsView: FC<ProductsViewProps> = ({
       {/* Products */}
       <div className="flex-grow h-full">
         {products.length > 0 ? (
-          <ProductGrid products={products} />
+          <ProductGrid products={products} discountPercent={discountPercent} />
         ) : (
           <NoProductsFound />
         )}
@@ -34,3 +36,5 @@ const ProductsView: FC<ProductsViewProps> = ({
 };
 
 export default ProductsView;
+
+

@@ -1,4 +1,5 @@
 "use client";
+
 import type { Product } from "@/sanity.types";
 import { AnimatePresence, motion } from "framer-motion";
 import { FC, ReactElement, Suspense } from "react";
@@ -6,9 +7,13 @@ import ProductThumb from "./ProductThumb";
 
 interface ProductGridProps {
   products: Product[];
+  discountPercent?: number;
 }
 
-const ProductGrid: FC<ProductGridProps> = ({ products }): ReactElement => {
+const ProductGrid: FC<ProductGridProps> = ({
+  products,
+  discountPercent = 0,
+}): ReactElement => {
   return (
     <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 mt-5 mb-32">
       <AnimatePresence>
@@ -22,7 +27,10 @@ const ProductGrid: FC<ProductGridProps> = ({ products }): ReactElement => {
             className="flex justify-center"
           >
             <Suspense fallback={<ProductThumb.Skeleton />}>
-              <ProductThumb product={product} />
+              <ProductThumb
+                product={product}
+                discountPercent={discountPercent}
+              />
             </Suspense>
           </motion.div>
         ))}

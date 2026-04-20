@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { ReactElement } from "react";
+import Link from 'next/link';
 
 const Orders = async ({}): Promise<ReactElement> => {
   const { userId } = await auth();
@@ -87,10 +88,10 @@ const Orders = async ({}): Promise<ReactElement> => {
                   No Orders Yet
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  You haven't placed any orders yet. Start shopping to see your
+                  You haven&apos;t placed any orders yet. Start shopping to see your
                   orders here!
                 </p>
-                <a
+                <Link
                   href="/"
                   className="inline-flex items-center gap-2 px-6 py-3 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                   style={{
@@ -112,7 +113,7 @@ const Orders = async ({}): Promise<ReactElement> => {
                     />
                   </svg>
                   Start Shopping
-                </a>
+                </Link>
               </div>
             </div>
           ) : (
