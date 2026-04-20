@@ -1,89 +1,69 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-// Define public routes
-// const isPublicRoute = createRouteMatcher(["/", "/api/(.*)", "/(auth)/(.*)"]);
-
-const isPublicRoute = createRouteMatcher([
-  "/",             // homepage is public
-  "/(auth)/(.*)",  // Clerk auth routes are public
+const isBypassRoute = createRouteMatcher([
+  "/studio(.*)",
+  "/onboarding",
+  "/api/set-onboarded",
   "/api/track-session",
+  "/api/user",
+  "/api/end-session(.*)",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/sign-out",
 ]);
 
+const isWebhookRoute = createRouteMatcher([
+  "/api/stripe/webhook",
+  "/api/end-session/webhook",
+]);
 
-export default clerkMiddleware(async (auth, req) => {
+function getOnboardingCookieValue(req: NextRequest): string | undefined {
+  return req.cookies.get("onboarding_complete")?.value;
+}
+
+function getVerifiedSessionCookie(req: NextRequest): string | undefined {
+  return req.cookies.get("ob_verified")?.value;
+}
+
+export default clerkMiddleware(async (auth, req: NextRequest) => {
   try {
-    const { userId } = await auth(); // await here is important
-    
-    // Skip session tracking for public routes
-    // if (!isPublicRoute(req) && userId) {
-    //   const userAgent = req.headers.get("user-agent") || "Unknown";
-    //   const forwardedFor = req.headers.get("x-forwarded-for");
-    //   const ipAddress = forwardedFor
-    //     ? forwardedFor.split(",")[0].trim()
-    //     : "Unknown";
-      
-    //   // Clone the request
-    //   const response = NextResponse.next();
-      
-    //   // Store session tracking info in a cookie
-    //   response.cookies.set(
-    //     "x-session-track",
-    //     JSON.stringify({
-    //       userId,
-    //       ipAddress,
-    //       userAgent,
-    //       timestamp: Date.now(),
-    //     }),
-    //     {
-    //       httpOnly: true,
-    //       secure: process.env.NODE_ENV === "production",
-    //       sameSite: "strict",
-    //       path: "/",
-    //       maxAge: 60, // Short lived
-    //     }
-    //   );
-      
-    //   // Only attempt to track session for non-tracking API requests
-    //   // if (req.nextUrl.pathname !== "/api/track-session-internal") {
-    //   if (req.nextUrl.pathname !== "/api/track-session") {
+    const { userId, sessionId } = await auth();
 
-    //     const isTracking = req.headers.get("x-session-tracking");
-    //     if (!isTracking) {
-    //       // Move the fetch call outside the main middleware flow
-    //       // to avoid blocking or affecting the response
-    //       setTimeout(() => {
-    //         // fetch(`${req.nextUrl.origin}/api/track-session-internal`, {
-    //         fetch(`${req.nextUrl.origin}/api/track-session`, {
-    //           method: "POST",
-    //           headers: {
-    //             "Content-Type": "application/json",
-    //             "x-session-tracking": "true",
-    //             Authorization: req.headers.get("Authorization") || "",
-    //             Host: req.headers.get("host") || "",
-    //           },
-    //           body: JSON.stringify({
-    //             userId,
-    //             ipAddress,
-    //             userAgent,
-    //           }),
-    //         }).catch((err) => {
-    //           console.warn("Background session tracking failed:", err.message);
-    //         });
-    //       }, 0);
-    //     }
-    //   }
-      
-    //   return response;
-    // }
-    
-    return NextResponse.next();
+    if (!userId) return NextResponse.next();
+    if (isWebhookRoute(req)) return NextResponse.next();
+    if (isBypassRoute(req)) return NextResponse.next();
+
+    const onboardingCookie = getOnboardingCookieValue(req);
+    const verifiedSession = getVerifiedSessionCookie(req);
+
+    // Fast path: cookie present AND we have DB-verified this session.
+    if (onboardingCookie === "1" && verifiedSession === sessionId) {
+      return NextResponse.next();
+    }
+
+    // Slow path: route through /api/set-onboarded for DB verification.
+    const verifyUrl = req.nextUrl.clone();
+    verifyUrl.pathname = "/api/set-onboarded";
+    verifyUrl.searchParams.set(
+      "next",
+      req.nextUrl.pathname + req.nextUrl.search
+    );
+    return NextResponse.redirect(verifyUrl);
   } catch (error) {
-    console.error("Middleware error:", error);
-    return NextResponse.next();
+    console.error("[middleware] auth error:", error);
+
+    return NextResponse.json(
+      { error: "Authentication error. Please try again." },
+      { status: 500 }
+    );
   }
 });
 
 export const config = {
-  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };

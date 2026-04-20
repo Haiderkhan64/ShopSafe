@@ -18,12 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-// Form schema matching Prisma User model
+// Only the fields the user can legitimately set.
+// role is intentionally absent — it is server-controlled.
 const formSchema = z.object({
-  email: z.string().email("Invalid email address"),
   name: z.string().min(2, "Name must be at least 2 characters"),
   address: z.string().optional(),
-  role: z.enum(["ADMIN", "ANALYST", "CUSTOMER"]),
 });
 
 interface AccountProfileProps {
@@ -32,7 +31,6 @@ interface AccountProfileProps {
     email: string;
     name: string;
     address?: string | null;
-    role?: "ADMIN" | "ANALYST" | "CUSTOMER";
   };
   btnTitle: string;
 }
@@ -44,10 +42,8 @@ export function AccountProfile({ user, btnTitle }: AccountProfileProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: user.email || "",
       name: user.name || "",
       address: user.address || "",
-      role: user.role || "CUSTOMER",
     },
   });
 
@@ -55,27 +51,27 @@ export function AccountProfile({ user, btnTitle }: AccountProfileProps) {
     try {
       setIsSubmitting(true);
 
+      // Only send the fields the user controls.
+      // email is read from Clerk on the server.
+      // role is always set server-side to CUSTOMER.
       const response = await fetch("/api/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          id: user.id,
-          email: values.email,
           name: values.name,
           address: values.address,
-          role: values.role,
         }),
       });
 
       if (response.ok) {
         router.push("/");
       } else {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         console.error("Failed to update user:", error);
         form.setError("root", {
-          message: "Failed to create account. Please try again.",
+          message: error?.error || "Failed to create account. Please try again.",
         });
       }
     } catch (error) {
@@ -91,19 +87,18 @@ export function AccountProfile({ user, btnTitle }: AccountProfileProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="youremail@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Email is display-only — sourced from Clerk, not editable here */}
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Email
+          </label>
+          <p className="px-3 py-2 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm border border-gray-200 dark:border-gray-700">
+            {user.email}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Email is managed through your account settings
+          </p>
+        </div>
 
         <FormField
           control={form.control}
