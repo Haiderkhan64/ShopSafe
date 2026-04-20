@@ -1,5 +1,3 @@
-// hooks/useUserData.ts
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 
@@ -20,49 +18,76 @@ interface User {
   }>;
 }
 
-export function useUserData(userId?: string) {
+interface UseUserDataResult {
+  userData: User | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+export function useUserData(userId?: string): UseUserDataResult {
   const { getToken } = useAuth();
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchUserData() {
       try {
         setLoading(true);
         setError(null);
 
-        // If userId is provided, fetch that specific user
+        // /api/user/[id] returns { user: ... } (admin endpoint)
+        // /api/user     returns { data: ... } (self endpoint)
         const endpoint = userId ? `/api/user/${userId}` : `/api/user`;
 
+        const token = await getToken();
         const response = await fetch(endpoint, {
           headers: {
-            Authorization: `Bearer ${await getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Failed to fetch user data");
         }
 
-        const data = await response.json();
-        setUserData(data.user);
+        const body = await response.json();
+
+        if (cancelled) return;
+
+        // /api/user/[id] → { user: {...} }
+        // /api/user       → { data: {...} }
+        const resolved: User | null = userId
+          ? (body?.user ?? null)
+          : (body?.data ?? null);
+
+        setUserData(resolved);
       } catch (err) {
+        if (cancelled) return;
         console.error("Error fetching user data:", err);
         setError(err instanceof Error ? err.message : "Unknown error occurred");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchUserData();
-  }, [userId, getToken]);
 
-  return { userData, loading, error, refetch: () => {} };
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, getToken, tick]);
+
+  return {
+    userData,
+    loading,
+    error,
+    // Expose a real refetch so consumers can trigger a re-fetch.
+    refetch: () => setTick((t) => t + 1),
+  };
 }
-
-// Usage example:
-// const { userData, loading, error } = useUserData();
-// Or to fetch another user (admin only):
-// const { userData, loading, error } = useUserData('user_123');
