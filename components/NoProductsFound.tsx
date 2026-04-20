@@ -48,7 +48,7 @@ const NoProductsFound = () => {
 
         {/* Description */}
         <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-          We couldn't find any products matching your search criteria. Try
+          We couldn&apos;t find any products matching your search criteria. Try
           adjusting your search terms or explore our full collection.
         </p>
 

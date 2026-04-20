@@ -7,6 +7,7 @@ import {
   SignInButton,
   UserButton,
   useUser,
+  useClerk,
 } from "@clerk/nextjs";
 import Form from "next/form";
 import {
@@ -19,26 +20,19 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import useBasketStore from "@/store";
+import useBasketStore, { abortCartSync } from "@/store";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "next-themes";
 
-declare global {
-  interface Window {
-    Clerk?: {
-      signOut: (callback?: () => void) => void;
-    };
-  }
-}
-
 const TopBar = () => {
   const { user } = useUser();
+  const { signOut } = useClerk();
   const [isCreatingPasskey, setIsCreatingPasskey] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { theme, setTheme, systemTheme } = useTheme();
-  const currentTheme = theme === "system" ? systemTheme : theme;
+
+  const { resolvedTheme, setTheme } = useTheme();
 
   const itemCount = useBasketStore((state) =>
     state.items.reduce((total, item) => total + item.quantity, 0)
@@ -46,20 +40,18 @@ const TopBar = () => {
 
   const createClerkPasskey = async () => {
     if (!user) return;
-
     setIsCreatingPasskey(true);
     setPasskeyError(null);
 
     try {
       await user.createPasskey();
-      console.log("Passkey created successfully!");
       window.location.reload();
-    } catch (err: any) {
-      console.error("Error:", JSON.stringify(err, null, 2));
-
-      const errorCode = err?.errors?.[0]?.code;
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const error = err as any;
+      const errorCode = error?.errors?.[0]?.code;
       const errorMessage =
-        err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message;
+        error?.errors?.[0]?.longMessage || error?.errors?.[0]?.message;
 
       if (errorCode === "session_reverification_required") {
         setPasskeyError(
@@ -77,23 +69,24 @@ const TopBar = () => {
 
   const handleSignOutClick = async (e: React.MouseEvent) => {
     e.preventDefault();
+
+    abortCartSync();
+
+    // ── STEP 1: End session tracking (Clerk token still valid) ────────────────
     try {
-      const response = await fetch("/api/end-session", {
+      await fetch("/api/end-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
         credentials: "include",
       });
-      if (!response.ok) {
-        console.error("Failed to end session:", response.statusText);
-      }
     } catch (error) {
       console.error("Error ending session:", error);
     }
+    useBasketStore.getState().clearBasket();
 
-    window.Clerk?.signOut(() => {
-      window.location.href = "/";
-    });
+    // ── STEP 3: Invalidate Clerk token LAST ───────────────────────────────────
+    await signOut({ redirectUrl: "/" });
   };
 
   return (
@@ -106,7 +99,7 @@ const TopBar = () => {
       {/* Main Header */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo Section */}
+          {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center bg-white shadow-md group-hover:shadow-lg transition-shadow">
@@ -130,14 +123,14 @@ const TopBar = () => {
             </Link>
           </div>
 
-          {/* Desktop Search Bar */}
+          {/* Desktop Search */}
           <div className="hidden md:flex flex-1 max-w-2xl mx-6">
             <Form action="/search" className="flex w-full">
               <div className="relative flex flex-1 items-center">
                 <input
                   name="query"
                   placeholder="Search for products..."
-                  className="w-full py-3 px-4 rounded-l-xl border-2 border-transparent bg-white text-gray-800 focus:outline-none focus:border-yellow-400 transition-all shadow-md"
+                  className="w-full py-3 px-4 rounded-l-xl border-2 border-transparent bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:border-yellow-400 transition-all shadow-md"
                 />
                 <button
                   type="submit"
@@ -147,16 +140,16 @@ const TopBar = () => {
                       "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
                   }}
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-5 w-5" style={{ color: "#574095" }} />
                 </button>
               </div>
             </Form>
           </div>
 
-          {/* Desktop Navigation Icons */}
+          {/* Desktop Nav Icons */}
           <div className="hidden md:flex items-center gap-4 lg:gap-6">
             <ThemeToggle />
-            {/* Orders */}
+
             <SignedIn>
               <Link
                 href="/orders"
@@ -167,7 +160,6 @@ const TopBar = () => {
               </Link>
             </SignedIn>
 
-            {/* Cart */}
             <Link
               href="/basket"
               className="flex flex-col items-center gap-1 hover:scale-110 transition-transform group"
@@ -186,7 +178,6 @@ const TopBar = () => {
               <span className="text-xs text-white font-medium">Cart</span>
             </Link>
 
-            {/* User Section */}
             <div className="flex items-center gap-3 ml-2">
               {user ? (
                 <div className="flex items-center gap-3">
@@ -209,10 +200,7 @@ const TopBar = () => {
                       <div className="relative">
                         <button
                           className="px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{
-                            background: "#FFD700",
-                            color: "#574095",
-                          }}
+                          style={{ background: "#FFD700", color: "#574095" }}
                           onClick={createClerkPasskey}
                           disabled={isCreatingPasskey}
                         >
@@ -238,10 +226,7 @@ const TopBar = () => {
                 <SignInButton>
                   <button
                     className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg"
-                    style={{
-                      background: "#FFD700",
-                      color: "#574095",
-                    }}
+                    style={{ background: "#FFD700", color: "#574095" }}
                   >
                     <User className="h-4 w-4" />
                     <span>Sign In</span>
@@ -251,7 +236,7 @@ const TopBar = () => {
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile menu button */}
           <button
             className="md:hidden p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -264,14 +249,14 @@ const TopBar = () => {
           </button>
         </div>
 
-        {/* Mobile Search Bar */}
+        {/* Mobile Search */}
         <div className="md:hidden pb-4">
           <Form action="/search" className="flex w-full">
             <div className="relative flex flex-1 items-center">
               <input
                 name="query"
                 placeholder="Search products..."
-                className="w-full py-2.5 px-4 rounded-l-lg border-2 border-transparent bg-white text-gray-800 focus:outline-none focus:border-yellow-400 transition-all text-sm"
+                className="w-full py-2.5 px-4 rounded-l-lg border-2 border-transparent bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:border-yellow-400 transition-all text-sm"
               />
               <button
                 type="submit"
@@ -281,27 +266,26 @@ const TopBar = () => {
                     "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
                 }}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-5 w-5" style={{ color: "#574095" }} />
               </button>
             </div>
           </Form>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div
-          className="md:hidden absolute top-full left-0 right-0 bg-white shadow-2xl z-40 border-t-4"
+          className="md:hidden absolute top-full left-0 right-0 bg-white dark:bg-gray-900 shadow-2xl z-40 border-t-4"
           style={{ borderColor: "#FFD700" }}
         >
           <div className="px-4 py-6 space-y-4">
-            {/* Mobile User Info */}
             {user ? (
-              <div className="flex items-center gap-3 pb-4 border-b-2 border-gray-200">
+              <div className="flex items-center gap-3 pb-4 border-b-2 border-gray-200 dark:border-gray-700">
                 <UserButton />
                 <div>
-                  <p className="text-xs text-gray-500">Welcome back</p>
-                  <p className="text-sm font-bold text-gray-900">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Welcome back</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                     {user?.fullName}
                   </p>
                 </div>
@@ -322,30 +306,26 @@ const TopBar = () => {
               </SignInButton>
             )}
 
-            {/* Mobile Navigation Links */}
             <div className="space-y-3">
               <SignedIn>
                 <Link
                   href="/orders"
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-760 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Package className="h-5 w-5" style={{ color: "#6B46C1" }} />
-                  <span className="font-semibold text-gray-900">My Orders</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">My Orders</span>
                 </Link>
               </SignedIn>
 
               <Link
                 href="/basket"
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-purple-50 transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <div className="flex items-center gap-3">
-                  <ShoppingCart
-                    className="h-5 w-5"
-                    style={{ color: "#6B46C1" }}
-                  />
-                  <span className="font-semibold text-gray-900">
+                  <ShoppingCart className="h-5 w-5" style={{ color: "#6B46C1" }} />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
                     Shopping Cart
                   </span>
                 </div>
@@ -360,47 +340,43 @@ const TopBar = () => {
               </Link>
 
               <div
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors cursor-pointer"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors cursor-pointer"
                 onClick={() => {
-                  setTheme(currentTheme === "dark" ? "light" : "dark");
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark");
                   setIsMobileMenuOpen(false);
                 }}
               >
-                {currentTheme === "dark" ? (
+                {resolvedTheme === "dark" ? (
                   <>
                     <Sun className="h-5 w-5" style={{ color: "#6B46C1" }} />
-                    <span className="font-semibold text-gray-900">
-                      Light Mode
-                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Light Mode</span>
                   </>
                 ) : (
                   <>
                     <Moon className="h-5 w-5" style={{ color: "#6B46C1" }} />
-                    <span className="font-semibold text-gray-900">
-                      Dark Mode
-                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Dark Mode</span>
                   </>
                 )}
               </div>
 
-              <div className="pt-4 border-t-2 border-gray-200"></div>
+              <div className="pt-4 border-t-2 border-gray-200 dark:border-gray-700" />
 
               <Link
                 href="/deals"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <span className="font-semibold text-gray-900">
-                  Today's Deals
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  Today&apos;s Deals
                 </span>
               </Link>
 
               <Link
                 href="/customer-service"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
                   Customer Service
                 </span>
               </Link>
@@ -411,26 +387,18 @@ const TopBar = () => {
                     {user?.passkeys.length === 0 && (
                       <button
                         className="w-full px-4 py-3 rounded-lg font-semibold text-sm transition-all shadow-md disabled:opacity-50"
-                        style={{
-                          background: "#FFD700",
-                          color: "#574095",
-                        }}
+                        style={{ background: "#FFD700", color: "#574095" }}
                         onClick={createClerkPasskey}
                         disabled={isCreatingPasskey}
                       >
-                        {isCreatingPasskey
-                          ? "Creating Passkey..."
-                          : "Create Passkey"}
+                        {isCreatingPasskey ? "Creating Passkey..." : "Create Passkey"}
                       </button>
                     )}
                   </ClerkLoaded>
 
                   <button
                     className="w-full px-4 py-3 rounded-lg font-semibold text-sm transition-all border-2"
-                    style={{
-                      borderColor: "#6B46C1",
-                      color: "#6B46C1",
-                    }}
+                    style={{ borderColor: "#6B46C1", color: "#6B46C1" }}
                     onClick={handleSignOutClick}
                   >
                     Sign Out
@@ -441,45 +409,6 @@ const TopBar = () => {
           </div>
         </div>
       )}
-
-      {/* Desktop Secondary Navigation */}
-      {/* <div
-        className="hidden md:block px-4 py-3"
-        style={{ backgroundColor: "#4A2F7A" }}
-      >
-        <div className="max-w-7xl mx-auto flex items-center gap-6 text-sm overflow-x-auto">
-          <Link
-            href="/deals"
-            className="text-white hover:text-yellow-300 transition whitespace-nowrap font-medium"
-          >
-            Today's Deals
-          </Link>
-          <Link
-            href="/customer-service"
-            className="text-white hover:text-yellow-300 transition whitespace-nowrap font-medium"
-          >
-            Customer Service
-          </Link>
-          <Link
-            href="/registry"
-            className="text-white hover:text-yellow-300 transition whitespace-nowrap font-medium"
-          >
-            Registry
-          </Link>
-          <Link
-            href="/gift-cards"
-            className="text-white hover:text-yellow-300 transition whitespace-nowrap font-medium"
-          >
-            Gift Cards
-          </Link>
-          <Link
-            href="/sell"
-            className="text-white hover:text-yellow-300 transition whitespace-nowrap font-medium"
-          >
-            Sell
-          </Link>
-        </div>
-      </div> */}
     </nav>
   );
 };

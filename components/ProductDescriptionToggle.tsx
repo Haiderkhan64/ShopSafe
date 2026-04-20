@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { PortableText } from "next-sanity";
+import { PortableText, type PortableTextBlock } from "next-sanity";
 
 interface ProductDescriptionToggleProps {
-  description: any[];
-  productId: string;
+  description: PortableTextBlock[];
+  // productId: string;
 }
 
 export default function ProductDescriptionToggle({
   description,
-  productId,
+  // productId,
 }: ProductDescriptionToggleProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
