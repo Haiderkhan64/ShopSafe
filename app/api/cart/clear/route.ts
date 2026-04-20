@@ -1,55 +1,51 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCsrfOrigin } from "@/lib/rate-limit";
 
-/**
- * Clear the entire cart for a user
- * Called after successful checkout
- */
 export async function POST(req: Request) {
+  // Verify Origin header to prevent CSRF.
+  if (!verifyCsrfOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
-    // Support both Clerk auth and internal webhook calls
-    const { userId: clerkUserId } = await auth();
-    const body = await req.json().catch(() => ({}));
-    
-    // Use Clerk userId if available, otherwise use userId from body (webhook)
-    const userId = clerkUserId || body.userId;
-    
-    if (!userId) {
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log('🧹 Clearing cart for user:', userId);
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      select: { id: true },
+    });
 
-    // Find user's cart
+    if (!user) {
+      // No user record yet — nothing to clear
+      return NextResponse.json({ success: true, itemsDeleted: 0 });
+    }
+
     const cart = await prisma.cart.findUnique({
-      where: { userId: userId }
+      where: { userId: user.id },
+      select: { id: true },
     });
 
     if (!cart) {
-      console.log('No cart found to clear');
-      return NextResponse.json({ success: true, message: 'No cart to clear' });
+      return NextResponse.json({ success: true, itemsDeleted: 0 });
     }
 
-    // Delete all items in the cart
     const deleted = await prisma.cartItem.deleteMany({
-      where: { cartId: cart.id }
+      where: { cartId: cart.id },
     });
 
-    console.log(`Cart cleared successfully - deleted ${deleted.count} items`);
-
-    return NextResponse.json({ 
-      success: true,
-      message: 'Cart cleared successfully',
-      itemsDeleted: deleted.count
-    });
-
+    return NextResponse.json({ success: true, itemsDeleted: deleted.count });
   } catch (error) {
-    console.error("Failed to clear cart:", error);
+    console.error("POST /api/cart/clear failed:", error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to clear cart",
-        details: error instanceof Error ? error.message : 'Unknown'
+        details: error instanceof Error ? error.message : "Unknown",
       },
       { status: 500 }
     );

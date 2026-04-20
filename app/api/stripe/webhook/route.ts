@@ -16,59 +16,73 @@ export async function POST(req: NextRequest) {
   }
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "No webhook secret found" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "No webhook secret found" }, { status: 400 });
   }
 
   let event: Stripe.Event;
-
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (error) {
-    console.log("Error constructing event:", error);
+    console.error("Stripe webhook signature verification failed:", error);
     return NextResponse.json(
       { error: "Webhook signature verification failed" },
-      {
-        status: 400,
-      },
+      { status: 400 }
     );
   }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     try {
-      // Create order in Sanity
-      const existingOrder = await backendClient.fetch(
-        `*[_type == "order" && stripeCheckoutSessionId == $id][0]`,
-        { id: session.id }
-);
-
-  if (existingOrder) {
-    return NextResponse.json({ received: true });
-  }
-
-      await createOrderInSanity(session);
-      
-      // Clear the cart in database after successful payment
-      const metadata = session.metadata as Metadata;
-      if (metadata?.clerkUserId) {
-        await clearCartInDatabase(metadata.clerkUserId);
-      }
-
+      await handleCheckoutCompleted(event.id, session);
     } catch (error) {
-      console.log("Error processing checkout session:", error);
+      console.error("Error processing checkout.session.completed:", error);
       return NextResponse.json(
         { error: "Error processing checkout session" },
-        { status: 500 },
+        { status: 500 }
       );
     }
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function handleCheckoutCompleted(
+  stripeEventId: string,
+  session: Stripe.Checkout.Session
+) {
+
+  try {
+    await prisma.processedWebhookEvent.create({
+      data: {
+        eventId: stripeEventId,
+        eventType: "checkout.session.completed",
+      },
+    });
+  } catch (error: unknown) {
+    // P2002 = unique constraint violation → already processed.
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      console.log(
+        `[stripe-webhook] Skipping duplicate event ${stripeEventId}`
+      );
+      return;
+    }
+    // Any other DB error — re-throw so the outer handler returns 500 and
+    // Stripe will retry.
+    throw error;
+  }
+
+  // Exactly one concurrent handler reaches here.
+  await createOrderInSanity(session);
+
+  const metadata = session.metadata as Metadata;
+  if (metadata?.clerkUserId) {
+    await clearCartInDatabase(metadata.clerkUserId);
+  }
 }
 
 async function createOrderInSanity(session: Stripe.Checkout.Session) {
@@ -85,12 +99,22 @@ async function createOrderInSanity(session: Stripe.Checkout.Session) {
   const { orderNumber, customerName, customerEmail, clerkUserId } =
     metadata as Metadata;
 
-  const lineItemsWithProduct = await stripe.checkout.sessions.listLineItems(
-    id,
-    {
+  // Wrap the Stripe API call in try/catch with explicit error context.
+  // listLineItems can be throttled by Stripe — surface that clearly rather
+  // than letting it bubble up as a generic 500.
+  let lineItemsWithProduct: Stripe.ApiList<Stripe.LineItem>;
+  try {
+    lineItemsWithProduct = await stripe.checkout.sessions.listLineItems(id, {
       expand: ["data.price.product"],
-    },
-  );
+      limit: 100, // Stripe default is 10; most carts won't hit 100.
+    });
+  } catch (error) {
+    console.error(
+      `[stripe-webhook] Failed to fetch line items for session ${id}:`,
+      error
+    );
+    throw error; // Re-throw — the outer handler will return 500 → Stripe retries.
+  }
 
   const sanityProducts = lineItemsWithProduct.data.map((item) => ({
     _key: crypto.randomUUID(),
@@ -101,7 +125,9 @@ async function createOrderInSanity(session: Stripe.Checkout.Session) {
     quantity: item.quantity || 0,
   }));
 
-  const order = await backendClient.create({
+  // createIfNotExists is Sanity's own idempotency primitive — safe on retries.
+  await backendClient.createIfNotExists({
+    _id: `order-${id}`,
     _type: "order",
     orderNumber,
     stripeCheckoutSessionId: id,
@@ -119,32 +145,26 @@ async function createOrderInSanity(session: Stripe.Checkout.Session) {
     status: "paid",
     orderDate: new Date().toISOString(),
   });
-
-  return order;
 }
 
 async function clearCartInDatabase(clerkUserId: string) {
   try {
-    console.log('🧹 Clearing database cart for user:', clerkUserId);
+    // look up by clerkId, not by id.
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: { id: true },
+    });
+    if (!user) return;
 
-    // Find user's cart
     const cart = await prisma.cart.findUnique({
-      where: { userId: clerkUserId }
+      where: { userId: user.id },
+      select: { id: true },
     });
+    if (!cart) return;
 
-    if (!cart) {
-      console.log('No cart found to clear');
-      return;
-    }
-
-    // Delete all items in the cart
-    const deleted = await prisma.cartItem.deleteMany({
-      where: { cartId: cart.id }
-    });
-
-    console.log(`✅ Database cart cleared - deleted ${deleted.count} items`);
+    await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
   } catch (error) {
-    console.error("Error clearing database cart:", error);
-    // Don't throw - payment already succeeded
+    // Non-fatal — payment succeeded. Cart clears on next sign-in via mergeWithServer.
+    console.error("Failed to clear database cart after payment:", error);
   }
 }

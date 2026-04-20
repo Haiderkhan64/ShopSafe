@@ -4,38 +4,44 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log('Fetching cart for user:', userId);
-
-    // Get the user's cart
-    const cart = await prisma.cart.findUnique({
-      where: { userId: userId },
-      include: {
-        items: true // Don't include product - it's in Sanity
-      }
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      select: { id: true },
     });
 
-    if (!cart) {
-      console.log('No cart found, returning empty');
-      return NextResponse.json({
-        id: null,
-        userId: userId,
-        items: []
-      });
+    if (!user) {
+      // User record not yet created — return empty cart, not an error.
+      return NextResponse.json({ items: [] });
     }
 
-    console.log('Cart found:', cart);
-    return NextResponse.json(cart);
+    const cart = await prisma.cart.findUnique({
+      where: { userId: user.id },
+      select: {
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+          },
+        },
+      },
+    });
 
+    return NextResponse.json({
+      items: cart?.items ?? [],
+    });
   } catch (error) {
-    console.error("Failed to fetch cart:", error);
+    console.error("GET /api/cart failed:", error);
     return NextResponse.json(
-      { error: "Failed to fetch cart", details: error instanceof Error ? error.message : 'Unknown' },
+      {
+        error: "Failed to fetch cart",
+        details: error instanceof Error ? error.message : "Unknown",
+      },
       { status: 500 }
     );
   }

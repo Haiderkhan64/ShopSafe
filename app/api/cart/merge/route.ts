@@ -1,162 +1,120 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { MAX_CART_QUANTITY } from "@/lib/constants";
+import { verifyCsrfOrigin } from "@/lib/rate-limit";
+import { Prisma } from "@prisma/client";
+
+const MergeItemSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().min(1).max(MAX_CART_QUANTITY),
+});
+
+const MergeBodySchema = z.object({
+  localItems: z.array(MergeItemSchema),
+});
 
 export async function POST(req: Request) {
-  try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { localItems } = await req.json();
-
-    console.log('Merging cart for user:', userId);
-    console.log('Local items:', localItems);
-
-    // Get or create the user's cart
-    let cart = await prisma.cart.upsert({
-      where: { userId: userId },
-      create: { userId: userId },
-      update: {},
-      include: {
-        items: true
-      }
-    });
-
-    console.log('Cart found/created:', cart.id);
-
-    // CRITICAL FIX: Don't ADD quantities, SET them from localStorage
-    // This prevents duplication on every page load
-    for (const localItem of localItems) {
-      const productId = localItem.product._id;
-      const quantity = localItem.quantity;
-
-      // Just SET the quantity from localStorage (don't add to existing)
-      await prisma.cartItem.upsert({
-        where: {
-          cartId_productId: {
-            cartId: cart.id,
-            productId: productId
-          }
-        },
-        create: {
-          cartId: cart.id,
-          productId: productId,
-          quantity: quantity // Use the exact quantity from localStorage
-        },
-        update: {
-          quantity: quantity // Replace database quantity with localStorage quantity
-        }
-      });
-
-      console.log(`Set item ${productId} to quantity ${quantity}`);
-    }
-
-    // Return the final cart
-    const finalCart = await prisma.cart.findUnique({
-      where: { id: cart.id },
-      include: {
-        items: true
-      }
-    });
-
-    console.log('Final cart:', finalCart);
-
-    return NextResponse.json(finalCart);
-
-  } catch (error) {
-    console.error("=== CART MERGE ERROR ===");
-    console.error("Error details:", error);
-    console.error("Error message:", error instanceof Error ? error.message : 'Unknown');
-    console.error("Stack trace:", error instanceof Error ? error.stack : 'N/A');
-    
-    return NextResponse.json(
-      { 
-        error: "Failed to merge cart", 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    );
+  if (!verifyCsrfOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-}
 
-// Handle single item add/remove operations
-export async function PATCH(req: Request) {
   try {
     const { userId } = await auth();
-    
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ items: [] });
     }
 
-    const { productId, action, quantity = 1 } = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-    console.log(`PATCH cart: ${action} ${quantity}x ${productId}`);
+    const parsed = MergeBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.errors },
+        { status: 400 }
+      );
+    }
 
-    const cart = await prisma.cart.upsert({
-      where: { userId: userId },
-      create: { userId: userId },
-      update: {}
+    const { localItems } = parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true },
     });
-
-    if (action === "add") {
-      const existingItem = await prisma.cartItem.findUnique({
-        where: {
-          cartId_productId: { cartId: cart.id, productId }
-        }
-      });
-
-      const newQuantity = (existingItem?.quantity || 0) + quantity;
-
-      await prisma.cartItem.upsert({
-        where: {
-          cartId_productId: { cartId: cart.id, productId }
-        },
-        create: {
-          cartId: cart.id,
-          productId,
-          quantity: newQuantity
-        },
-        update: {
-          quantity: newQuantity
-        }
-      });
-
-      console.log(`Added/updated item ${productId} to ${newQuantity}`);
-
-    } else if (action === "remove") {
-      const existingItem = await prisma.cartItem.findUnique({
-        where: {
-          cartId_productId: { cartId: cart.id, productId }
-        }
-      });
-
-      if (existingItem) {
-        const newQuantity = existingItem.quantity - quantity;
-        
-        if (newQuantity <= 0) {
-          await prisma.cartItem.delete({
-            where: { id: existingItem.id }
-          });
-          console.log(`Removed item ${productId}`);
-        } else {
-          await prisma.cartItem.update({
-            where: { id: existingItem.id },
-            data: { quantity: newQuantity }
-          });
-          console.log(`Decreased item ${productId} to ${newQuantity}`);
-        }
-      }
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    // FIX: Wrap the entire read-modify-write in a serialisable transaction so
+    // concurrent merge requests from multiple tabs cannot interleave and
+    // double-count quantities.  We use a Postgres advisory lock keyed on a
+    // stable hash of the internal user id so only one merge per user runs at
+    // a time without locking unrelated rows.
+    const itemCount = await prisma.$transaction(
+      async (tx) => {
+        // Advisory lock: pg_try_advisory_xact_lock acquires a session lock
+        // that is automatically released when the transaction commits or rolls
+        // back.  We derive a stable bigint from the user id string.
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(
+            ('x' || substr(md5(${user.id}), 1, 16))::bit(64)::bigint
+          )
+        `;
 
+        const cart = await tx.cart.upsert({
+          where: { userId: user.id },
+          create: { userId: user.id },
+          update: {},
+        });
+
+        if (localItems.length === 0) {
+          await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+          return 0;
+        }
+
+        const values = localItems.map(
+          (item) =>
+            Prisma.sql`(gen_random_uuid(), ${cart.id}, ${item.productId}, ${item.quantity}, NOW(), NOW())`
+        );
+
+        await tx.$executeRaw`
+          INSERT INTO "cart_items" ("id", "cartId", "productId", "quantity", "created_at", "updated_at")
+          VALUES ${Prisma.join(values)}
+          ON CONFLICT ("cartId", "productId")
+          DO UPDATE SET
+            "quantity"   = EXCLUDED."quantity",
+            "updated_at" = NOW()
+        `;
+
+        // Remove server items that are no longer in the local cart.
+        const incomingIds = localItems.map((i) => i.productId);
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: cart.id,
+            productId: { notIn: incomingIds },
+          },
+        });
+
+        return localItems.length;
+      },
+      // SERIALIZABLE isolation prevents phantom reads during the merge window.
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+
+    return NextResponse.json({ success: true, itemCount });
   } catch (error) {
-    console.error("Cart PATCH error:", error);
+    console.error("POST /api/cart/merge failed:", error);
     return NextResponse.json(
-      { error: "Failed to sync cart" },
+      {
+        error: "Failed to merge cart",
+        details: error instanceof Error ? error.message : "Unknown",
+      },
       { status: 500 }
     );
   }
