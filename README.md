@@ -1,148 +1,222 @@
 # ShopSafe
 
-A production-grade e-commerce platform. Secure checkout, fraud detection instrumentation, real-time inventory, and a multi-tab cart that actually works.
-
-Built on Next.js 15, Sanity CMS, PostgreSQL via Prisma, Clerk auth, and Stripe. Two databases on purpose — content and commerce are different problems and treating them as one is how you end up with a mess.
+A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first — secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
 
 ---
 
-## What This Is
+## Table of Contents
 
-ShopSafe is not a starter template. It is a full e-commerce system with:
-
-- A cart that survives page refreshes, sign-in/sign-out transitions, and multiple browser tabs without corrupting itself
-- Stripe webhooks that are idempotent at the database level, not the application level
-- An onboarding flow with two-layer verification so middleware never blocks legitimate users
-- Session tracking for fraud detection analytics
-- Sitewide and per-product discount logic that flows from a single function into both the UI and the Stripe line items — no price divergence possible
-- Soft and hard user deletion that respects order audit trails
+- [Architecture Overview](#architecture-overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Data Flow](#data-flow)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Environment Variables](#environment-variables)
+  - [Local Database Setup](#local-database-setup)
+  - [Running the App](#running-the-app)
+- [Key Design Decisions](#key-design-decisions)
+- [Cart System](#cart-system)
+- [Authentication & Onboarding](#authentication--onboarding)
+- [Payment & Webhooks](#payment--webhooks)
+- [Discount & Pricing Model](#discount--pricing-model)
+- [Fraud Detection Schema](#fraud-detection-schema)
+- [Rate Limiting & CSRF](#rate-limiting--csrf)
+- [ISR & Caching Strategy](#isr--caching-strategy)
+- [Session Tracking](#session-tracking)
+- [Docker](#docker)
+- [Scripts Reference](#scripts-reference)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
 
 ---
 
-## Stack
+## Architecture Overview
 
-| Layer | Technology | Why |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          Browser                                │
+│  Zustand (cart) ──► CartSyncWrapper ──► BroadcastChannel        │
+│                              │                                  │
+│                    Leader Election                               │
+└──────────────────────────────┼──────────────────────────────────┘
+                               │ HTTPS
+┌──────────────────────────────▼──────────────────────────────────┐
+│                        Next.js 15                               │
+│                                                                 │
+│  App Router          API Routes            Middleware           │
+│  ├─ (store)/         ├─ /api/cart/*        ├─ Clerk auth        │
+│  │  ├─ page.tsx      ├─ /api/user          ├─ Onboarding gate   │
+│  │  ├─ product/      ├─ /api/stripe/       └─ Cookie fast-path  │
+│  │  ├─ basket/       │   webhook                                │
+│  │  ├─ orders/       ├─ /api/orders/                            │
+│  │  └─ success/      └─ /api/track-session                      │
+│  ├─ (auth)/                                                     │
+│  └─ studio/          Server Actions                             │
+│                      └─ createCheckoutSession                   │
+└───────────┬───────────────────┬─────────────────────────────────┘
+            │                   │
+     ┌──────▼──────┐    ┌───────▼────────┐
+     │  Sanity CMS │    │  PostgreSQL     │
+     │  (Content)  │    │  via Prisma     │
+     │             │    │                │
+     │  Products   │    │  Users          │
+     │  Orders     │    │  Sessions       │
+     │  Categories │    │  Cart/CartItems │
+     │  Sales      │    │  Orders         │
+     └─────────────┘    │  Transactions   │
+                        │  FraudFlags     │
+            ┌───────────│  DataWarehouse  │
+            │           └────────────────┘
+     ┌──────▼──────┐
+     │   Stripe    │
+     │  Checkout   │
+     │  Webhooks   │
+     └─────────────┘
+```
+
+Two databases. Intentionally.
+
+**Sanity** owns the content layer — products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
+
+**PostgreSQL** owns the operational layer — user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
+
+---
+
+## Tech Stack
+
+| Layer | Choice | Why |
 |---|---|---|
-| Framework | Next.js 15 (App Router, Turbopack) | RSC + Server Actions give us zero-cost server rendering without a separate API layer for most things |
-| Content & Products | Sanity CMS | Structured content with live subscriptions. Products, orders, categories, and sales campaigns live here |
-| User data & Sessions | PostgreSQL via Prisma | Relational integrity matters for orders, carts, sessions, and fraud flags. Sanity is not a relational database |
-| Auth | Clerk | Passkeys, social login, webhooks for lifecycle events. Not worth building yourself |
-| Payments | Stripe | Checkout Sessions with server-generated order numbers. The client never touches the order ID |
-| State | Zustand + persist middleware | Cart state with a strict two-array invariant. Lightweight, no Redux ceremony |
-| Styling | Tailwind CSS + shadcn/ui | Utility classes with a sane component layer. No CSS-in-JS runtime cost |
-| Rate Limiting | Upstash Redis (Ratelimit) | Sliding window, per-IP, fails open gracefully when Redis is unavailable |
-| Validation | Zod | Every API route validates its input. No raw `req.body` anywhere |
-
----
-
-## Architecture
-
-### The Two-Database Design
-
-This gets asked about. The answer is straightforward.
-
-**Sanity** owns things that are content: products, categories, orders (after payment), and sales campaigns. It has a CDN, a live subscription API, and a studio UI that non-engineers can use. It is not a relational database. It has no foreign keys, no transactions, and no joins.
-
-**PostgreSQL** owns things that are relational: users, sessions, carts, order items, fraud flags, and the analytics data warehouse. These have foreign key constraints, transactional integrity, and need to support queries that Sanity's GROQ cannot express efficiently.
-
-The tradeoff is that you have two sources of truth for some data (an order exists in both Sanity and implicitly in the Postgres session/cart cleanup logic). The boundary is deliberate: Sanity is the source of truth for order display; Postgres is the source of truth for user state. They do not need to agree on anything except the Clerk user ID and the Sanity product IDs.
-
-### Cart Architecture
-
-The cart is the most complex piece of the system. It has to handle:
-
-- Anonymous users (localStorage only)
-- Signed-in users (localStorage + Postgres, merged on sign-in)
-- Multiple browser tabs (leader election via BroadcastChannel)
-- Page refreshes (Zustand persist middleware, ID-only, never full product objects)
-- Auth transitions (sign-in triggers merge, sign-out triggers clear)
-
-The store maintains two arrays in lockstep: `items` (full Sanity product objects, in-memory only) and `_persistedItems` (productId + quantity pairs, written to localStorage). Every mutation goes through a single `mutateCartItem` function that updates both arrays atomically within the Zustand setter. In development, an invariant assertion fires after every mutation to catch any desync immediately.
-
-On sign-in, one tab is elected leader via BroadcastChannel ping/pong. The leader runs `mergeWithServer` (local cart wins on quantity conflicts, server items are included if not in local cart), pushes the merged result back to Postgres, then broadcasts `sync_done` so other tabs can re-hydrate without each making their own merge request.
-
-```
-Sign-in
-  │
-  ├─ Tab A (leader elected via BroadcastChannel)
-  │   ├─ fetchRawServerCart()
-  │   ├─ merge(local, server) → local wins on conflict
-  │   ├─ POST /api/cart/merge
-  │   ├─ fetchProductsByIds() → hydrate items[]
-  │   └─ broadcast sync_done
-  │
-  └─ Tab B, C (followers)
-      └─ receive sync_done → hydrateFromServer()
-```
-
-### Pricing
-
-All discount logic lives in `lib/getEffectivePrice.ts`. It takes a product and an optional sitewide sale percentage. Product-level discounts win over sitewide sales. The result — `discountedPrice`, `originalPrice`, `effectiveDiscount`, `hasDiscount`, `discountAmount` — is consumed by `ProductThumb`, the basket page, and `createCheckoutSession`. The same function, the same inputs, the same output. The customer sees exactly what they are charged.
-
-### Middleware & Onboarding
-
-Middleware is a bad place to do database lookups on every request. This system avoids it with two cookies:
-
-- `onboarding_complete` — long-lived, set after DB confirms onboarding is done
-- `ob_verified` — session-scoped, value is the Clerk `sessionId`
-
-On most requests, middleware checks both cookies and fast-paths. Only on first visit after a new Clerk session does it redirect through `/api/set-onboarded`, which does the DB lookup, sets both cookies, and redirects back to the original destination. The slow path runs at most once per Clerk session.
-
-### Stripe Webhook Idempotency
-
-Stripe delivers webhooks at least once. The naive approach — check if an order exists, create if not — has a race window where two concurrent deliveries both read "not exists" before either writes.
-
-This system uses raw SQL `INSERT ... ON CONFLICT DO NOTHING` into `system_configs` keyed by `webhook:checkout:{sessionId}`. The database guarantees exactly one insert succeeds. The handler that gets 0 rows returned stops immediately. The one that gets 1 row continues. No application-level locking required.
-
-Sanity's `createIfNotExists` handles retries at the content layer for the same reason.
+| Framework | Next.js 15 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
+| CMS | Sanity v3 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
+| Auth | Clerk | Passkey support, webhooks for user lifecycle, session JWTs |
+| Payments | Stripe Checkout | Idempotent sessions, webhook-driven order creation |
+| ORM | Prisma 6 | Type-safe schema, migration history, Accelerate compatibility |
+| Database | PostgreSQL 16 | SERIALIZABLE transactions for cart merge, advisory locks |
+| State | Zustand + `persist` middleware | Offline-first cart with zero-flash hydration |
+| Styling | Tailwind CSS v3 + shadcn/ui | Utility-first, dark mode via `class` strategy |
+| Rate Limiting | Upstash Redis (Ratelimit) | Serverless-safe sliding window, fails open gracefully |
+| Containerization | Docker multi-stage build | Slim production image, Prisma engines pre-generated |
+| Dev Environment | Nix flake | Reproducible shell, pinned Node 22 + PostgreSQL 16, local `pg_ctl` scripts |
 
 ---
 
 ## Project Structure
 
 ```
+.
 ├── app/
-│   ├── (auth)/              # Sign-in, sign-up, onboarding — isolated Clerk appearance
-│   ├── (store)/             # Main storefront — scroll-aware header, cart sync
-│   │   ├── basket/          # Cart page with Stripe checkout
-│   │   ├── categories/      # Category-filtered product grids
-│   │   ├── orders/          # Order history (server component, auth-gated)
-│   │   ├── product/[slug]/  # Product detail with ISR (15min revalidation)
-│   │   ├── search/          # Full-text product search
-│   │   └── success/         # Post-payment with order polling
+│   ├── (auth)/              # Sign-in, sign-up, onboarding — isolated Clerk theme
+│   ├── (store)/             # Main storefront routes
+│   │   ├── page.tsx         # Home — ISR 60s
+│   │   ├── basket/          # Client cart page
+│   │   ├── categories/[slug]/
+│   │   ├── orders/          # Server-rendered order history
+│   │   ├── product/[slug]/  # ISR 15min per product
+│   │   └── success/         # Post-payment polling page
 │   ├── api/
-│   │   ├── cart/            # GET (fetch), POST /sync (add/remove), POST /merge, POST /clear
-│   │   ├── orders/check/    # Polls Sanity for order existence (used by success page)
-│   │   ├── products/by-ids/ # Batch Sanity product fetch for cart hydration
-│   │   ├── stripe/webhook/  # Payment webhook with idempotency
-│   │   ├── track-session/   # Session creation/update for fraud analytics
-│   │   ├── end-session/     # Sign-out session close + Clerk webhook handler
-│   │   ├── set-onboarded/   # Cookie setter + DB verification (middleware slow path)
-│   │   └── user/            # Self-profile CRUD + admin fetch by ID
-│   └── studio/              # Sanity Studio embedded at /studio
+│   │   ├── cart/            # GET, POST /sync, POST /merge, POST /clear
+│   │   ├── end-session/     # Session lifecycle + Clerk webhook consumer
+│   │   ├── orders/check/    # Polling endpoint for success page
+│   │   ├── products/by-ids/ # Batch Sanity fetch for cart hydration
+│   │   ├── set-onboarded/   # Cookie fast-path after onboarding
+│   │   ├── stripe/webhook/  # Idempotent checkout.session.completed handler
+│   │   ├── track-session/   # Device/browser session recording
+│   │   └── user/            # CRUD — self and admin [id] variants
+│   ├── studio/              # Sanity Studio embedded in Next.js
+│   └── layout.tsx           # Root: ThemeProvider > ClerkProviderWrapper > SessionProvider
+│
 ├── components/
-│   ├── shared/Topbar.tsx    # Navigation with passkey creation, sign-out sequence
-│   ├── AddToBasketButton    # Quantity control with optimistic updates + server sync
-│   ├── ProductThumb         # Card with discount badges, hover overlay
-│   └── CartSyncWrapper      # Mounts useCartSync hook at the layout level
-├── lib/
-│   ├── getEffectivePrice.ts # Single source of truth for all discount logic
-│   ├── rate-limit.ts        # Upstash Redis sliding window, fails open
-│   ├── stripe.ts            # Stripe client (server-only)
-│   ├── prisma.ts            # Prisma client singleton
-│   └── constants.ts         # MAX_CART_QUANTITY, revalidation periods
+│   ├── AddToButtons.tsx     # Zero → cart CTA with spinner + trust badges
+│   ├── AddToBasketButton.tsx # Stepper (–  N  +) for in-cart state
+│   ├── ProductThumb.tsx     # Card with skeleton, discount badge, hover overlay
+│   ├── ProductGrid.tsx      # AnimatePresence grid
+│   ├── ProductsView.tsx     # Sort + filter toolbar + grid
+│   ├── ScrollAwareHeader.tsx # Hide-on-scroll fixed nav
+│   └── shared/Topbar.tsx   # Full nav: search, cart, user, passkey, sign-out
+│
 ├── sanity/
-│   ├── schemaTypes/         # product, order, sale, category, blockContent
-│   └── lib/
-│       ├── products/        # getAllProducts, getProductBySlug, search, by-category
-│       ├── sales/           # getActiveSales, getBestDiscount, getActiveSaleByCouponCode
-│       └── orders/          # getMyOrders
-├── store/index.ts           # Zustand cart store with full sync architecture
+│   ├── schemaTypes/         # product, category, order, sale, blockContent
+│   ├── lib/
+│   │   ├── client.ts        # CDN client (reads)
+│   │   ├── backendClient.ts # Write client (webhook only)
+│   │   ├── live.ts          # defineLive — revalidate: 0
+│   │   └── products/        # getAllProducts, getProductBySlug, search, categories
+│   │   └── sales/           # getActiveSales, getBestDiscount, getByCoupon
+│   └── env.ts
+│
+├── lib/
+│   ├── getEffectivePrice.ts # Single pricing function — product discount wins over sale
+│   ├── prisma.ts            # Singleton PrismaClient with dev query logging
+│   ├── rate-limit.ts        # Upstash wrapper + verifyCsrfOrigin
+│   ├── stripe.ts            # server-only Stripe instance
+│   └── constants.ts         # MAX_CART_QUANTITY, PAGE_SIZE, revalidate periods
+│
+├── store/index.ts           # Zustand cart store — the most complex file
 ├── hooks/
-│   ├── useCartSync.ts       # Leader election + auth transition handler
-│   └── useDeviceInfo.ts     # UAParser for session tracking
-├── middleware.ts            # Cookie fast-path + onboarding guard
-└── prisma/schema.prisma     # Full schema: users, sessions, carts, orders, fraud, DW
+│   ├── useCartSync.ts       # BroadcastChannel leader election + auth-state sync
+│   └── useDeviceInfo.ts     # UAParser — client-only, prevents SSR mismatch
+│
+├── actions/
+│   └── createCheckoutSession.ts  # Server Action: fetches live sale price, creates Stripe session
+│
+├── prisma/
+│   ├── schema.prisma        # Full schema including data warehouse star schema
+│   ├── migrations/          # Full migration history
+│   └── seed.ts              # Deterministic seed with weighted random order statuses
+│
+└── middleware.ts            # Clerk auth + onboarding gate with cookie fast-path
+```
+
+---
+
+## Data Flow
+
+### Adding a Product to Cart
+
+```
+User clicks "Add to Cart"
+        │
+        ▼
+useBasketStore.addItem()        ← optimistic, synchronous, instant UI
+        │
+        ▼
+mutateCartItem()                ← single mutation path, clamps to MAX_CART_QUANTITY
+        │                          keeps items[] and _persistedItems[] in sync
+        ▼
+Zustand persist → localStorage  ← _persistedItems only (no Product objects stored)
+        │
+        ▼ (if signed in)
+POST /api/cart/sync             ← fire-and-forget, server mirrors the change
+        │
+        ▼
+prisma.cartItem.upsert()        ← idempotent, clamps quantity server-side too
+```
+
+### Checkout
+
+```
+User clicks "Secure Checkout"
+        │
+        ▼
+createCheckoutSession()         ← Server Action
+        │
+        ├─ auth() → assert userId
+        ├─ getActiveSales()     ← fresh sale fetch at checkout moment
+        ├─ getBestDiscount()
+        ├─ getEffectivePrice()  ← per item: product discount wins over sale
+        └─ stripe.checkout.sessions.create()
+                │
+                ▼
+        Stripe hosted page
+                │
+                ▼ (webhook)
+POST /api/stripe/webhook
+        │
+        ├─ stripe.webhooks.constructEvent()   ← signature verification
+        ├─ prisma.processedWebhookEvent.create()  ← idempotency key (P2002 = skip)
+        ├─ backendClient.createIfNotExists()  ← Sanity order doc, safe on retry
+        └─ prisma.cartItem.deleteMany()       ← clear DB cart post-purchase
 ```
 
 ---
@@ -152,222 +226,371 @@ Sanity's `createIfNotExists` handles retries at the content layer for the same r
 ### Prerequisites
 
 - Node.js 22+
-- PostgreSQL 14+
-- A Sanity project
-- A Clerk application
-- A Stripe account
-- Upstash Redis (optional — rate limiting fails open without it)
+- PostgreSQL 16+ (or use the Nix dev shell which manages it for you)
+- A [Sanity](https://sanity.io) project
+- A [Clerk](https://clerk.com) application
+- A [Stripe](https://stripe.com) account
+- Optionally: [Upstash Redis](https://upstash.com) for rate limiting
 
-If you use Nix, there is a `flake.nix` that gives you all of the above (using Podman for containers) with a single `nix develop`.
+The Nix flake (`flake.nix`) gives you a fully pinned dev environment with all of the above managed locally. If you use Nix:
+
+```bash
+nix develop
+```
 
 ### Environment Variables
 
-Create `.env.local`:
+Create `.env.local` at the project root:
 
 ```bash
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/shopsafe"
-
 # Sanity
-NEXT_PUBLIC_SANITY_PROJECT_ID="your-project-id"
-NEXT_PUBLIC_SANITY_DATASET="production"
-NEXT_PUBLIC_SANITY_API_VERSION="2024-01-01"
-SANITY_API_READ_TOKEN="your-read-token"
-SANITY_API_TOKEN="your-write-token"
+NEXT_PUBLIC_SANITY_PROJECT_ID=your_project_id
+NEXT_PUBLIC_SANITY_DATASET=production
+NEXT_PUBLIC_SANITY_API_VERSION=2024-01-01
+SANITY_API_TOKEN=your_write_token
+SANITY_API_READ_TOKEN=your_read_token
 
 # Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_..."
-CLERK_SECRET_KEY="sk_..."
-CLERK_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_WEBHOOK_SECRET=whsec_...
 
 # Stripe
-STRIPE_SECRET_KEY="sk_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Database
+# For Next.js runtime (Prisma Accelerate in production, direct in dev)
+DATABASE_URL=postgresql://postgres@localhost:5433/shopsafe?host=/path/to/.devdb/run
+# Always direct — used by migrations, Prisma Studio, db-reset
+LOCAL_DATABASE_URL=postgresql://postgres@localhost:5433/shopsafe?host=/path/to/.devdb/run
 
 # App
-NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-# Upstash (optional — rate limiting disabled if absent)
-UPSTASH_REDIS_REST_URL="https://..."
-UPSTASH_REDIS_REST_TOKEN="..."
+# Optional — rate limiting. Fails open (disabled) if not set.
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-### Setup
+> **Note on DATABASE_URL vs LOCAL_DATABASE_URL:** Migrations can never run through Prisma Accelerate. `LOCAL_DATABASE_URL` always points at a direct socket connection. `DATABASE_URL` may point at an Accelerate proxy in production. The two are intentionally separate so swapping in Accelerate never accidentally breaks `prisma migrate deploy`.
+
+### Local Database Setup
+
+Using the Nix shell scripts (recommended):
 
 ```bash
-# Install dependencies
+db-up          # init cluster + start postgres on port 5433
+db-migrate     # prisma migrate deploy against LOCAL_DATABASE_URL
+```
+
+Without Nix:
+
+```bash
+# Start your local postgres however you prefer, then:
+DATABASE_URL="$LOCAL_DATABASE_URL" npx prisma migrate deploy
+npx prisma generate
+```
+
+Optional seed (creates users, products, orders, fraud flags, data warehouse dims):
+
+```bash
+npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts
+```
+
+### Running the App
+
+```bash
 npm install
+npm run dev          # Turbopack dev server on :3000
 
-# Run database migrations
-npm prisma migrate deploy
-
-# Seed with development data
-npm prisma db seed
-
-# Generate Sanity types (after schema changes)
-npm typegen
-
-# Start development server
-npm dev
+# In a separate terminal (to receive Stripe webhooks locally):
+stripe-forward       # or: stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-### Stripe Webhooks (Local)
-
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-### Clerk Webhooks (Local)
-
-Expose your local server with ngrok or similar, then configure in the Clerk dashboard:
-
-- `session.ended` → `https://your-tunnel.ngrok.io/api/end-session/webhook`
-- `user.deleted` → `https://your-tunnel.ngrok.io/api/end-session/webhook`
+Sanity Studio is available at `/studio`.
 
 ---
 
 ## Key Design Decisions
 
-**Why Zustand and not React Query / SWR for cart state?**
-Cart state is local-first. React Query is a server-cache synchronisation library — it assumes the server is the source of truth. The cart has three sources of truth depending on auth state: localStorage (anonymous), merged local+server (just signed in), and server (follower tabs after sync). Zustand with explicit sync actions models this cleanly. React Query would require significant contortion.
+### Why Two Databases?
 
-**Why `_persistedItems` alongside `items`?**
-Full Sanity product objects (images, descriptions, block content) are large. Persisting them to localStorage wastes space and goes stale the moment a product is updated in Sanity. Only `productId` and `quantity` are persisted. On every hydration, fresh product objects are fetched from Sanity via `/api/products/by-ids`. The two arrays must always agree on productIds and quantities — the invariant assertion in development catches any violation immediately.
+Sanity is a content platform. PostgreSQL is an operational database. Mixing product descriptions and fraud scores in the same store would be the wrong abstraction. Sanity handles the CMS workflow — editors, live preview, schema evolution. Postgres handles the transactional workload — cart atomicity, session tracking, fraud flags — where ACID guarantees matter.
 
-**Why is the order number generated server-side?**
-Two reasons. First, a client-generated UUID allows a race condition where a double-click or network retry sends two checkout requests with different order numbers, creating duplicate orders. The server action generates one UUID per invocation. Second, a client-supplied order number is an untrusted input. The server owns the order namespace.
+Orders exist in both: Sanity holds the customer-facing order document (queried by `getMyOrders`), Postgres holds the operational record for analytics and fraud detection.
 
-**Why soft-delete users with orders?**
-SQL foreign key constraints with `ON DELETE RESTRICT` prevent deleting a user who has orders. The options are: cascade delete (destroys the order audit trail, potentially illegal in some jurisdictions), set null (breaks order attribution), or soft-delete (anonymise PII, preserve the record). Users with no orders are hard-deleted. Users with orders are anonymised. The `user.deleted` Clerk webhook handles this automatically.
+### clerkId vs id
 
-**Why embed Sanity Studio at `/studio`?**
-Operational convenience. Editors can access the CMS at the same domain without a separate deployment. The route is `force-static` and excluded from the middleware matcher so it never goes through auth checks.
+The internal `User.id` is a cuid generated by Prisma. `User.clerkId` is the external Clerk user ID. Every API route resolves `auth().userId` (the Clerk ID) and looks up `prisma.user.findUnique({ where: { clerkId } })`. This decoupling means the internal primary key is stable even if an account is migrated or re-linked.
 
-**Why fail open on rate limiting?**
-If Upstash Redis is unavailable or unconfigured, `rateLimit()` returns `null` and all requests proceed. A rate limiter that takes down your app when Redis goes cold is worse than no rate limiter at all. The tradeoff is documented and logged in production.
+### Onboarding Gate
+
+Every authenticated request passes through `middleware.ts`. The fast-path: two HTTP-only cookies (`onboarding_complete=1` and `ob_verified=<sessionId>`) skip the DB lookup for the vast majority of requests. On cold start or new session, the middleware redirects to `/api/set-onboarded` which hits Postgres once and sets the cookies. Subsequent requests are free.
+
+### Cart Invariant
+
+`items[]` and `_persistedItems[]` are kept in strict sync by a single mutation path (`mutateCartItem`). `items` holds full `Product` objects for rendering. `_persistedItems` holds `{ productId, quantity }` — the only thing persisted to localStorage. On rehydration, `items` starts empty and gets populated by either `hydrateItemsLocally` (unauthenticated) or `mergeWithServer` (authenticated). The invariant is asserted on every mutation in development.
 
 ---
 
-## Data Models
+## Cart System
 
-### Sanity (Content)
+The cart is the most complex subsystem. Here is what it does and why.
 
-| Schema | Key Fields |
+### Multi-Tab Leader Election
+
+When the page loads (or auth state changes), `useCartSync` uses a `BroadcastChannel` to elect a single leader tab. The leader performs the server merge; other tabs receive a `sync_done` message and hydrate from the server directly. This prevents N concurrent merge requests from N open tabs.
+
+### Merge Strategy
+
+On sign-in, local cart and server cart are merged with a "take the maximum quantity" strategy. If you have 2 of an item locally and the server says 3 (e.g. from another device), you get 3. The merged result is written to the server via `POST /api/cart/merge`.
+
+The merge endpoint uses a PostgreSQL **SERIALIZABLE transaction** with an **advisory lock** keyed on a hash of the user's internal ID. This prevents two concurrent merge requests (e.g. two tabs racing) from double-counting quantities.
+
+```sql
+SELECT pg_advisory_xact_lock(
+  ('x' || substr(md5($userId), 1, 16))::bit(64)::bigint
+)
+```
+
+### Quantity Cap
+
+`MAX_CART_QUANTITY = 99` is enforced in three places: the Zustand store, `/api/cart/sync`, and `/api/cart/merge`. Change the constant in `lib/constants.ts` and it propagates everywhere.
+
+---
+
+## Authentication & Onboarding
+
+New users are created in two possible paths:
+
+1. **`POST /api/track-session`** — fires after Clerk loads, uses session claims to create the user record if an email claim is available and the record doesn't exist yet.
+2. **`POST /api/user`** — the onboarding form. Always creates/updates the user with the verified Clerk email from `currentUser()`. Sets `hasCompletedOnboarding = true` and writes the fast-path cookies.
+
+The middleware ensures no authenticated user reaches any store page without completing onboarding. The `/api/set-onboarded` redirect is the single chokepoint.
+
+Passkey creation is available in the navbar for users who haven't enrolled one yet.
+
+---
+
+## Payment & Webhooks
+
+### Idempotency
+
+The Stripe webhook handler (`POST /api/stripe/webhook`) inserts a `ProcessedWebhookEvent` row before doing any work. If Stripe retries the delivery (network hiccup, slow response), the second attempt hits a unique constraint (`P2002`) and returns 200 immediately without creating a duplicate order.
+
+```typescript
+// First delivery: creates row, proceeds
+await prisma.processedWebhookEvent.create({ data: { eventId, eventType } });
+
+// Retry: P2002 → caught, early return
+if (error.code === "P2002") return;
+```
+
+### Order Creation
+
+`backendClient.createIfNotExists()` writes the Sanity order document. Sanity's own `createIfNotExists` is idempotent — the document ID is `order-{stripeSessionId}`, so it is safe to call on webhook retry.
+
+### Price Lock
+
+The price charged by Stripe is computed **inside the Server Action** at the moment the user clicks "Checkout", not at page render time. `getActiveSales()` is called fresh. This closes the race window where a sale expires between page load and payment submission.
+
+---
+
+## Discount & Pricing Model
+
+`getEffectivePrice(product, saleDiscount)` is the single pricing function. It encodes one rule: **product-level discount wins over sitewide sale**.
+
+```
+effectiveDiscount = product.discount > 0 ? product.discount : saleDiscount
+discountedPrice   = round(originalPrice × (1 − effectiveDiscount/100), 2)
+```
+
+Out-of-stock products have `hasDiscount = false` even if a discount applies — there is no point advertising a saving on something you cannot buy.
+
+Prices are stored in USD dollars as `number` in Sanity and converted to cents for Stripe with `Math.round(price * 100)`.
+
+---
+
+## Fraud Detection Schema
+
+The Postgres schema includes a full fraud detection model:
+
+```
+Transaction ──► FraudFlag
+                ├─ riskScore: Float   (0–1, from ML model)
+                ├─ flagged: Boolean
+                ├─ isConfirmedFraud: Boolean
+                ├─ source: String     ("ML_MODEL" | "MANUAL")
+                └─ reviewNotes: String
+```
+
+Alongside a star schema for BI:
+
+```
+SalesFact
+  ├─ UserDim    (userId, email, region, userType)
+  ├─ ProductDim (productId, name, category, price)
+  └─ TimeDim    (day, month, quarter, year, isWeekend, isHoliday)
+```
+
+This is intentional groundwork. The schema is ready for an ML pipeline to populate `FraudFlag.riskScore` and for a BI tool (Metabase, Superset, Redash) to query `SalesFact` directly.
+
+---
+
+## Rate Limiting & CSRF
+
+Rate limiting uses Upstash Ratelimit with a sliding window algorithm. It **fails open** — if `UPSTASH_REDIS_REST_URL` is not set, the limiter returns `null` and the request proceeds. In production, set the env vars. In development, you can leave them unset.
+
+CSRF protection uses origin header verification (`verifyCsrfOrigin`). All state-mutating endpoints (`/api/cart/sync`, `/api/cart/merge`, `/api/cart/clear`, `/api/end-session`) verify the `Origin` header against `NEXT_PUBLIC_BASE_URL`. Server-to-server requests with no `Origin` header are allowed.
+
+---
+
+## ISR & Caching Strategy
+
+| Route | Strategy | TTL |
+|---|---|---|
+| `/` (home) | ISR | 60 seconds |
+| `/product/[slug]` | ISR | 15 minutes |
+| `/categories/[slug]` | Dynamic (per-request) | — |
+| `/search` | Dynamic | — |
+| `/orders` | Dynamic (server, auth-gated) | — |
+| Sanity fetches | `revalidate: 0` via `defineLive` | Live |
+
+Product pages use a 15-minute ISR window (`REVALIDATE_PRODUCT_PAGE_SECONDS = 900`). For a catalogue that changes slowly, this is a reasonable trade-off. Stock levels and prices are always recalculated at checkout time.
+
+The home page ISR at 60 seconds means a newly activated sale is visible within a minute without a full revalidation pipeline.
+
+---
+
+## Session Tracking
+
+Every authenticated page load fires `POST /api/track-session` (from `SessionProvider`). The endpoint:
+
+1. Looks up or creates the user by `clerkId`
+2. Finds the most recent active session for that user
+3. Creates a new session if none exists, otherwise updates `deviceInfo`
+
+On sign-out, `POST /api/end-session` closes the active session by setting `endTime`, computing `duration`, and marking `isActive = false`. The Clerk `session.ended` webhook does the same as a backup if the browser tab is closed without a graceful sign-out.
+
+`useDeviceInfo` (via `ua-parser-js`) runs only on the client, avoiding SSR/hydration mismatch. The device info is a JSON blob in `Session.deviceInfo`.
+
+---
+
+## Docker
+
+The `Dockerfile` uses a two-stage build:
+
+```
+Stage 1 (builder): node:22-bullseye
+  - npm ci
+  - prisma generate (for debian-openssl-1.1.x)
+  - next build
+
+Stage 2 (runtime): node:22-bullseye
+  - copy .next, node_modules, public, prisma
+  - prisma generate again (runtime binary)
+  - EXPOSE 3000
+  - HEALTHCHECK via http.get
+```
+
+```bash
+docker build -t shopsafe .
+docker run -p 3000:3000 --env-file .env.local shopsafe
+```
+
+---
+
+## Scripts Reference
+
+These scripts are available in the Nix dev shell (`nix develop`):
+
+| Script | Description |
 |---|---|
-| `product` | name, slug, image, price, discount(%), description, categories[], stock |
-| `category` | title, slug, description |
-| `order` | orderNumber, clerkUserId, products[], totalPrice, status, stripeIds |
-| `sale` | title, couponCode, discountAmount, validFrom, validUntil, isActive |
+| `dev-setup` | `npm install` + `prisma generate` |
+| `db-up` | Init cluster (first run) + start PostgreSQL on port 5433 |
+| `db-down` | Stop PostgreSQL |
+| `db-shell` | Open `psql` connected to `shopsafe` |
+| `db-migrate` | `prisma migrate deploy` against `LOCAL_DATABASE_URL` |
+| `db-reset` | Wipe and re-run all migrations (dev only) |
+| `db-studio` | Prisma Studio against local DB |
+| `stripe-forward` | Forward Stripe webhooks to `localhost:3000/api/stripe/webhook` |
+| `check-env` | Assert all required env vars are present |
 
-### PostgreSQL (Operational)
+Without Nix, the npm scripts cover the essentials:
 
-| Model | Purpose |
-|---|---|
-| `User` | id(clerkId), email, name, role, address, hasCompletedOnboarding |
-| `Session` | userId, deviceInfo(JSON), ipAddress, startTime, endTime, isActive |
-| `Cart` | userId (1:1) |
-| `CartItem` | cartId, productId(sanityId), quantity |
-| `Order` | userId, status, total (internal tracking) |
-| `Transaction` | orderId, amount, paymentMethod, status, metadata(JSON) |
-| `FraudFlag` | transactionId, riskScore, flagged, isConfirmedFraud, source |
-
-The data warehouse models (`UserDim`, `ProductDim`, `TimeDim`, `SalesFact`) support BI queries. They are populated separately from the operational models and can be rebuilt from operational data at any time.
+```bash
+npm run dev          # Turbopack dev server
+npm run build        # Production build
+npm run lint         # ESLint
+npm run typegen      # Regenerate sanity.types.ts from schema
+```
 
 ---
 
 ## API Reference
 
-All API routes validate input with Zod. All routes that mutate state require a valid Clerk session. Rate limiting is applied where noted.
+### Cart
 
-| Route | Method | Auth | Rate Limit | Description |
-|---|---|---|---|---|
-| `/api/user` | GET | Required | — | Fetch own profile |
-| `/api/user` | POST | Required | 5/min | Create or update own profile |
-| `/api/user/[id]` | GET | Required | — | Fetch any user (admin only) |
-| `/api/cart` | GET | Required | — | Fetch server cart items |
-| `/api/cart/sync` | POST | Required | 30/min | Add or remove single item |
-| `/api/cart/merge` | POST | Required | — | Replace server cart with local state |
-| `/api/cart/clear` | POST | Required | — | Empty server cart |
-| `/api/products/by-ids` | POST | None | — | Batch fetch Sanity products by ID |
-| `/api/orders/check` | GET | Required | — | Poll for order existence in Sanity |
-| `/api/track-session` | POST | Required | 10/min | Create or update session record |
-| `/api/end-session` | POST | Required | — | Close active session on sign-out |
-| `/api/end-session/webhook` | POST | Svix sig | — | Clerk webhook: session.ended, user.deleted |
-| `/api/stripe/webhook` | POST | Stripe sig | — | Stripe webhook: checkout.session.completed |
-| `/api/set-onboarded` | GET | Required | — | DB verify + set onboarding cookies |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/cart` | Required | Fetch server cart items |
+| `POST` | `/api/cart/sync` | Required | Add or remove one item. Rate-limited 30 req/min. |
+| `POST` | `/api/cart/merge` | Required | Full cart merge with serializable transaction |
+| `POST` | `/api/cart/clear` | Required | Delete all cart items |
 
----
+### User
 
-## Sanity Schema Notes
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/user` | Required | Fetch own profile |
+| `POST` | `/api/user` | Required | Create or update profile (onboarding). Rate-limited 5 req/min. |
+| `GET` | `/api/user/[id]` | Admin only | Fetch any user by internal Prisma ID |
 
-**Products** have a `discount` field (0–100%) that is per-product and takes precedence over any active sitewide `Sale`. This means you can run a sale campaign while keeping certain products at full price, or discount a single product permanently without creating a sale record.
+### Orders
 
-**Orders** in Sanity are created by the Stripe webhook handler, not by the application. The client never writes to Sanity. The `_id` of each order document is `order-{stripeCheckoutSessionId}`, which makes `createIfNotExists` naturally idempotent.
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/orders/check?orderNumber=` | Required | Poll for order existence in Sanity (used by success page) |
 
-**Sales** are time-bounded and toggled by `isActive`. `getActiveSales` filters by both the boolean flag and the validity window, then returns results ordered by `discountAmount desc` so the best deal is always `sales[0]`.
+### Products
 
----
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/products/by-ids` | None | Batch fetch Sanity products by ID array (max 100) |
 
-## Caching Strategy
+### Sessions & Webhooks
 
-| Data | Strategy | TTL |
-|---|---|---|
-| Product listings (home) | ISR | 60 seconds |
-| Product detail pages | ISR | 15 minutes |
-| Active sales | `sanityFetch` with `revalidate: 0` | Always fresh (live subscription) |
-| Category listings | `sanityFetch` with `revalidate: 0` | Always fresh |
-| Sanity Studio | `force-static` | Build time |
-
-Live Sanity subscriptions (`SanityLive` component in root layout) push updates to RSC pages without a full refresh. ISR handles the case where the subscription has not yet delivered an update.
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/track-session` | Required | Record device info, create/update session. Rate-limited 10 req/min. |
+| `POST` | `/api/end-session` | Required | Close active session on sign-out |
+| `POST` | `/api/end-session/webhook` | Svix sig | Clerk webhook: `session.ended`, `user.deleted` |
+| `POST` | `/api/stripe/webhook` | Stripe sig | Stripe webhook: `checkout.session.completed` |
+| `GET` | `/api/set-onboarded` | Required | Middleware redirect: verify onboarding, set cookies |
 
 ---
 
-## Known Issues
+## Contributing
 
-**1. Missing `await` on `rateLimit` in `/api/user/route.ts`**
+The codebase has a few hard rules:
 
-The function is async but the call site does not await it, meaning the rate limit check returns a `Promise` that is always truthy. Rate limiting on the user creation endpoint is currently non-functional.
+**One mutation path.** All cart mutations go through `mutateCartItem`. Do not reach into `items` or `_persistedItems` directly.
 
-```typescript
-// Broken
-const limited = rateLimit(request, { windowMs: 60_000, max: 5 });
+**One pricing function.** All discount logic lives in `getEffectivePrice`. Do not inline discount math anywhere else.
 
-// Fix
-const limited = await rateLimit(request, { windowMs: 60_000, max: 5 });
-```
+**Migrations over raw SQL.** Every schema change needs a Prisma migration. `LOCAL_DATABASE_URL` is for migration targets. Never point `prisma migrate` at an Accelerate URL.
 
-**2. `/api/user/[id]` missing from middleware bypass list**
+**Server-only secrets.** `lib/stripe.ts` imports `server-only`. Do not import it from client components.
 
-Admin requests to this route go through the onboarding redirect check on every request. Add `/api/user(.*)` to `isBypassRoute` in `middleware.ts`.
-
-**3. `OrderBy` component is a no-op**
-
-It writes a `?sort=` query param but nothing reads it. Product ordering is always by name ascending as returned by Sanity.
-
-**4. Quick View button has no handler**
-
-The button in `ProductThumb` renders but does nothing on click.
-
-**5. Duplicate slider image**
-
-`SliderImages.tsx` slide 3 uses the same `srcDesktop` as slide 1 (`Desktop-1.jpg`).
-
----
-
-## Running in Production
+**No `role` in the user form.** `POST /api/user` accepts only `name` and `address`. Role is set server-side to `CUSTOMER` on create and is never updatable via this route.
 
 ```bash
-npm build
-npm start
+# Before opening a PR
+npm run lint
+npm run build        # catches type errors that lint misses
+npm run typegen      # if you touched any Sanity schema or GROQ queries
 ```
-
-Ensure `DATABASE_URL` points to a production PostgreSQL instance with SSL enabled. Run migrations before deployment — never `db push`:
-
-```bash
-npm prisma migrate deploy
-```
-
-The Sanity write token (`SANITY_API_TOKEN`) used by `backendClient` must have write access to the dataset. It is only used in the Stripe webhook handler and must never be exposed to the client.
 
 ---
 
