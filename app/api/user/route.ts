@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   // FIX 1: rateLimit is async — must be awaited. The original code did NOT
   // await it, so `limited` was always a truthy Promise object, meaning rate
   // limiting was completely bypassed on this endpoint.
-  const limited = await rateLimit(request, { windowMs: 60_000, max: 5 });
+  const limited = await rateLimit(request, { windowMs: 60000, max: 5 });
   if (limited) return limited;
 
   let userId: string | null = null;
