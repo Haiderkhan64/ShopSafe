@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!existingUser) {
-      // New user — only create if we have a real email. Without claims
+      // New user only create if we have a real email. Without claims
       // configured, we skip creation here; the onboarding flow (POST /api/user)
       // will create the record with the verified email from currentUser().
       if (claimsEmail) {
