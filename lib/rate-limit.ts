@@ -60,7 +60,7 @@ function getIp(req: Request): string {
  * Returns a 429 NextResponse if the caller is rate-limited, null otherwise.
  *
  * Usage:
- *   const limited = await rateLimit(req, { windowMs: 60_000, max: 30 });
+ *   const limited = await rateLimit(req, { windowMs: 60000, max: 30 });
  *   if (limited) return limited;
  */
 export async function rateLimit(
