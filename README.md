@@ -1,6 +1,27 @@
+<div align="center">
+
+<img src="public/ShopSafe.svg" alt="ShopSafe Logo" width="120" height="120" />
+
 # ShopSafe
 
+**Secure shopping, smart pricing, fraud-aware from day one.**
+
+[![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Sanity](https://img.shields.io/badge/Sanity-F03E2F?style=for-the-badge&logo=sanity&logoColor=white)](https://www.sanity.io/)
+[![Stripe](https://img.shields.io/badge/Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white)](https://stripe.com/)
+[![Clerk](https://img.shields.io/badge/Clerk-6C47FF?style=for-the-badge&logo=clerk&logoColor=white)](https://clerk.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Zustand](https://img.shields.io/badge/Zustand-433e38?style=for-the-badge&logo=react&logoColor=white)](https://zustand-demo.pmnd.rs/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Nix](https://img.shields.io/badge/Nix-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://nixos.org/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
+
 A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first — secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
+
+</div>
 
 ---
 
@@ -28,6 +49,7 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 - [Scripts Reference](#scripts-reference)
 - [API Reference](#api-reference)
 - [Contributing](#contributing)
+- [License](#license)
 
 ---
 
@@ -36,9 +58,9 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Browser                                │
-│  Zustand (cart) ──► CartSyncWrapper ──► BroadcastChannel        │
+│  Zustand (cart) ──► CartSyncWrapper ──► BroadcastChannel       │
 │                              │                                  │
-│                    Leader Election                               │
+│                    Leader Election                              │
 └──────────────────────────────┼──────────────────────────────────┘
                                │ HTTPS
 ┌──────────────────────────────▼──────────────────────────────────┐
@@ -59,7 +81,7 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
      ┌──────▼──────┐    ┌───────▼────────┐
      │  Sanity CMS │    │  PostgreSQL     │
      │  (Content)  │    │  via Prisma     │
-     │             │    │                │
+     │             │    │                 │
      │  Products   │    │  Users          │
      │  Orders     │    │  Sessions       │
      │  Categories │    │  Cart/CartItems │
@@ -67,7 +89,7 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
      └─────────────┘    │  Transactions   │
                         │  FraudFlags     │
             ┌───────────│  DataWarehouse  │
-            │           └────────────────┘
+            │           └─────────────────┘
      ┌──────▼──────┐
      │   Stripe    │
      │  Checkout   │
@@ -75,11 +97,10 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
      └─────────────┘
 ```
 
-Two databases. Intentionally.
+**Two databases. Intentionally.**
 
-**Sanity** owns the content layer — products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
-
-**PostgreSQL** owns the operational layer — user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
+- **Sanity** owns the content layer — products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
+- **PostgreSQL** owns the operational layer — user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
 
 ---
 
@@ -87,17 +108,17 @@ Two databases. Intentionally.
 
 | Layer | Choice | Why |
 |---|---|---|
-| Framework | Next.js 15 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
-| CMS | Sanity v3 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
-| Auth | Clerk | Passkey support, webhooks for user lifecycle, session JWTs |
-| Payments | Stripe Checkout | Idempotent sessions, webhook-driven order creation |
-| ORM | Prisma 6 | Type-safe schema, migration history, Accelerate compatibility |
-| Database | PostgreSQL 16 | SERIALIZABLE transactions for cart merge, advisory locks |
-| State | Zustand + `persist` middleware | Offline-first cart with zero-flash hydration |
-| Styling | Tailwind CSS v3 + shadcn/ui | Utility-first, dark mode via `class` strategy |
-| Rate Limiting | Upstash Redis (Ratelimit) | Serverless-safe sliding window, fails open gracefully |
-| Containerization | Docker multi-stage build | Slim production image, Prisma engines pre-generated |
-| Dev Environment | Nix flake | Reproducible shell, pinned Node 22 + PostgreSQL 16, local `pg_ctl` scripts |
+| ![Next.js](https://img.shields.io/badge/-Next.js_15-000?logo=nextdotjs&logoColor=white&style=flat-square) **Framework** | Next.js 15 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
+| ![Sanity](https://img.shields.io/badge/-Sanity-F03E2F?logo=sanity&logoColor=white&style=flat-square) **CMS** | Sanity v3 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
+| ![Clerk](https://img.shields.io/badge/-Clerk-6C47FF?logo=clerk&logoColor=white&style=flat-square) **Auth** | Clerk | Passkey support, webhooks for user lifecycle, session JWTs |
+| ![Stripe](https://img.shields.io/badge/-Stripe-635BFF?logo=stripe&logoColor=white&style=flat-square) **Payments** | Stripe Checkout | Idempotent sessions, webhook-driven order creation |
+| ![Prisma](https://img.shields.io/badge/-Prisma-2D3748?logo=prisma&logoColor=white&style=flat-square) **ORM** | Prisma 6 | Type-safe schema, migration history, Accelerate compatibility |
+| ![PostgreSQL](https://img.shields.io/badge/-PostgreSQL_16-4169E1?logo=postgresql&logoColor=white&style=flat-square) **Database** | PostgreSQL 16 | SERIALIZABLE transactions for cart merge, advisory locks |
+| ![Zustand](https://img.shields.io/badge/-Zustand-433e38?logo=react&logoColor=white&style=flat-square) **State** | Zustand + persist middleware | Offline-first cart with zero-flash hydration |
+| ![Tailwind](https://img.shields.io/badge/-Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white&style=flat-square) **Styling** | Tailwind CSS v3 + shadcn/ui | Utility-first, dark mode via class strategy |
+| ![Upstash](https://img.shields.io/badge/-Upstash_Redis-00C389?logo=upstash&logoColor=white&style=flat-square) **Rate Limiting** | Upstash Redis (Ratelimit) | Serverless-safe sliding window, fails open gracefully |
+| ![Docker](https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white&style=flat-square) **Containerization** | Docker multi-stage build | Slim production image, Prisma engines pre-generated |
+| ![Nix](https://img.shields.io/badge/-Nix-5277C3?logo=nixos&logoColor=white&style=flat-square) **Dev Environment** | Nix flake | Reproducible shell, pinned Node 22 + PostgreSQL 16, local `pg_ctl` scripts |
 
 ---
 
@@ -137,13 +158,12 @@ Two databases. Intentionally.
 │
 ├── sanity/
 │   ├── schemaTypes/         # product, category, order, sale, blockContent
-│   ├── lib/
-│   │   ├── client.ts        # CDN client (reads)
-│   │   ├── backendClient.ts # Write client (webhook only)
-│   │   ├── live.ts          # defineLive — revalidate: 0
-│   │   └── products/        # getAllProducts, getProductBySlug, search, categories
-│   │   └── sales/           # getActiveSales, getBestDiscount, getByCoupon
-│   └── env.ts
+│   └── lib/
+│       ├── client.ts        # CDN client (reads)
+│       ├── backendClient.ts # Write client (webhook only)
+│       ├── live.ts          # defineLive — revalidate: 0
+│       └── products/        # getAllProducts, getProductBySlug, search, categories
+│       └── sales/           # getActiveSales, getBestDiscount, getByCoupon
 │
 ├── lib/
 │   ├── getEffectivePrice.ts # Single pricing function — product discount wins over sale
@@ -225,14 +245,14 @@ POST /api/stripe/webhook
 
 ### Prerequisites
 
-- Node.js 22+
-- PostgreSQL 16+ (or use the Nix dev shell which manages it for you)
-- A [Sanity](https://sanity.io) project
-- A [Clerk](https://clerk.com) application
-- A [Stripe](https://stripe.com) account
-- Optionally: [Upstash Redis](https://upstash.com) for rate limiting
+- ![Node.js](https://img.shields.io/badge/-Node.js_22+-339933?logo=nodedotjs&logoColor=white&style=flat-square) Node.js 22+
+- ![PostgreSQL](https://img.shields.io/badge/-PostgreSQL_16+-4169E1?logo=postgresql&logoColor=white&style=flat-square) PostgreSQL 16+ *(or use the Nix dev shell)*
+- ![Sanity](https://img.shields.io/badge/-Sanity_Project-F03E2F?logo=sanity&logoColor=white&style=flat-square) A Sanity project
+- ![Clerk](https://img.shields.io/badge/-Clerk_App-6C47FF?logo=clerk&logoColor=white&style=flat-square) A Clerk application
+- ![Stripe](https://img.shields.io/badge/-Stripe_Account-635BFF?logo=stripe&logoColor=white&style=flat-square) A Stripe account
+- ![Upstash](https://img.shields.io/badge/-Upstash_Redis_(optional)-00C389?logo=upstash&logoColor=white&style=flat-square) Optionally: Upstash Redis for rate limiting
 
-The Nix flake (`flake.nix`) gives you a fully pinned dev environment with all of the above managed locally. If you use Nix:
+The Nix flake (`flake.nix`) gives you a fully pinned dev environment with all of the above managed locally:
 
 ```bash
 nix develop
@@ -260,9 +280,7 @@ STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
 # Database
-# For Next.js runtime (Prisma Accelerate in production, direct in dev)
 DATABASE_URL=postgresql://postgres@localhost:5433/shopsafe?host=/path/to/.devdb/run
-# Always direct — used by migrations, Prisma Studio, db-reset
 LOCAL_DATABASE_URL=postgresql://postgres@localhost:5433/shopsafe?host=/path/to/.devdb/run
 
 # App
@@ -273,26 +291,25 @@ UPSTASH_REDIS_REST_URL=https://...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-> **Note on DATABASE_URL vs LOCAL_DATABASE_URL:** Migrations can never run through Prisma Accelerate. `LOCAL_DATABASE_URL` always points at a direct socket connection. `DATABASE_URL` may point at an Accelerate proxy in production. The two are intentionally separate so swapping in Accelerate never accidentally breaks `prisma migrate deploy`.
+> **Note on `DATABASE_URL` vs `LOCAL_DATABASE_URL`:** Migrations can never run through Prisma Accelerate. `LOCAL_DATABASE_URL` always points at a direct socket connection. `DATABASE_URL` may point at an Accelerate proxy in production.
 
 ### Local Database Setup
 
-Using the Nix shell scripts (recommended):
+**Using the Nix shell scripts (recommended):**
 
 ```bash
 db-up          # init cluster + start postgres on port 5433
 db-migrate     # prisma migrate deploy against LOCAL_DATABASE_URL
 ```
 
-Without Nix:
+**Without Nix:**
 
 ```bash
-# Start your local postgres however you prefer, then:
 DATABASE_URL="$LOCAL_DATABASE_URL" npx prisma migrate deploy
 npx prisma generate
 ```
 
-Optional seed (creates users, products, orders, fraud flags, data warehouse dims):
+**Optional seed** (creates users, products, orders, fraud flags, data warehouse dims):
 
 ```bash
 npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts
@@ -320,23 +337,21 @@ Sanity is a content platform. PostgreSQL is an operational database. Mixing prod
 
 Orders exist in both: Sanity holds the customer-facing order document (queried by `getMyOrders`), Postgres holds the operational record for analytics and fraud detection.
 
-### clerkId vs id
+### `clerkId` vs `id`
 
 The internal `User.id` is a cuid generated by Prisma. `User.clerkId` is the external Clerk user ID. Every API route resolves `auth().userId` (the Clerk ID) and looks up `prisma.user.findUnique({ where: { clerkId } })`. This decoupling means the internal primary key is stable even if an account is migrated or re-linked.
 
 ### Onboarding Gate
 
-Every authenticated request passes through `middleware.ts`. The fast-path: two HTTP-only cookies (`onboarding_complete=1` and `ob_verified=<sessionId>`) skip the DB lookup for the vast majority of requests. On cold start or new session, the middleware redirects to `/api/set-onboarded` which hits Postgres once and sets the cookies. Subsequent requests are free.
+Every authenticated request passes through `middleware.ts`. The fast-path: two HTTP-only cookies (`onboarding_complete=1` and `ob_verified=<sessionId>`) skip the DB lookup for the vast majority of requests. On cold start or new session, the middleware redirects to `/api/set-onboarded` which hits Postgres once and sets the cookies.
 
 ### Cart Invariant
 
-`items[]` and `_persistedItems[]` are kept in strict sync by a single mutation path (`mutateCartItem`). `items` holds full `Product` objects for rendering. `_persistedItems` holds `{ productId, quantity }` — the only thing persisted to localStorage. On rehydration, `items` starts empty and gets populated by either `hydrateItemsLocally` (unauthenticated) or `mergeWithServer` (authenticated). The invariant is asserted on every mutation in development.
+`items[]` and `_persistedItems[]` are kept in strict sync by a single mutation path (`mutateCartItem`). `items` holds full `Product` objects for rendering. `_persistedItems` holds `{ productId, quantity }` — the only thing persisted to localStorage. The invariant is asserted on every mutation in development.
 
 ---
 
 ## Cart System
-
-The cart is the most complex subsystem. Here is what it does and why.
 
 ### Multi-Tab Leader Election
 
@@ -344,9 +359,9 @@ When the page loads (or auth state changes), `useCartSync` uses a `BroadcastChan
 
 ### Merge Strategy
 
-On sign-in, local cart and server cart are merged with a "take the maximum quantity" strategy. If you have 2 of an item locally and the server says 3 (e.g. from another device), you get 3. The merged result is written to the server via `POST /api/cart/merge`.
+On sign-in, local cart and server cart are merged with a **"take the maximum quantity"** strategy. If you have 2 of an item locally and the server says 3 (e.g. from another device), you get 3. The merged result is written to the server via `POST /api/cart/merge`.
 
-The merge endpoint uses a PostgreSQL **SERIALIZABLE transaction** with an **advisory lock** keyed on a hash of the user's internal ID. This prevents two concurrent merge requests (e.g. two tabs racing) from double-counting quantities.
+The merge endpoint uses a PostgreSQL `SERIALIZABLE` transaction with an advisory lock keyed on a hash of the user's internal ID:
 
 ```sql
 SELECT pg_advisory_xact_lock(
@@ -364,12 +379,10 @@ SELECT pg_advisory_xact_lock(
 
 New users are created in two possible paths:
 
-1. **`POST /api/track-session`** — fires after Clerk loads, uses session claims to create the user record if an email claim is available and the record doesn't exist yet.
+1. **`POST /api/track-session`** — fires after Clerk loads, uses session claims to create the user record if an email claim is available.
 2. **`POST /api/user`** — the onboarding form. Always creates/updates the user with the verified Clerk email from `currentUser()`. Sets `hasCompletedOnboarding = true` and writes the fast-path cookies.
 
-The middleware ensures no authenticated user reaches any store page without completing onboarding. The `/api/set-onboarded` redirect is the single chokepoint.
-
-Passkey creation is available in the navbar for users who haven't enrolled one yet.
+The middleware ensures no authenticated user reaches any store page without completing onboarding. Passkey creation is available in the navbar for users who haven't enrolled one yet.
 
 ---
 
@@ -377,7 +390,7 @@ Passkey creation is available in the navbar for users who haven't enrolled one y
 
 ### Idempotency
 
-The Stripe webhook handler (`POST /api/stripe/webhook`) inserts a `ProcessedWebhookEvent` row before doing any work. If Stripe retries the delivery (network hiccup, slow response), the second attempt hits a unique constraint (`P2002`) and returns 200 immediately without creating a duplicate order.
+The Stripe webhook handler inserts a `ProcessedWebhookEvent` row before doing any work. If Stripe retries the delivery, the second attempt hits a unique constraint (`P2002`) and returns `200` immediately without creating a duplicate order.
 
 ```typescript
 // First delivery: creates row, proceeds
@@ -387,13 +400,9 @@ await prisma.processedWebhookEvent.create({ data: { eventId, eventType } });
 if (error.code === "P2002") return;
 ```
 
-### Order Creation
-
-`backendClient.createIfNotExists()` writes the Sanity order document. Sanity's own `createIfNotExists` is idempotent — the document ID is `order-{stripeSessionId}`, so it is safe to call on webhook retry.
-
 ### Price Lock
 
-The price charged by Stripe is computed **inside the Server Action** at the moment the user clicks "Checkout", not at page render time. `getActiveSales()` is called fresh. This closes the race window where a sale expires between page load and payment submission.
+The price charged by Stripe is computed inside the Server Action **at the moment the user clicks "Checkout"**, not at page render time. `getActiveSales()` is called fresh, closing the race window where a sale expires between page load and payment submission.
 
 ---
 
@@ -406,9 +415,7 @@ effectiveDiscount = product.discount > 0 ? product.discount : saleDiscount
 discountedPrice   = round(originalPrice × (1 − effectiveDiscount/100), 2)
 ```
 
-Out-of-stock products have `hasDiscount = false` even if a discount applies — there is no point advertising a saving on something you cannot buy.
-
-Prices are stored in USD dollars as `number` in Sanity and converted to cents for Stripe with `Math.round(price * 100)`.
+Out-of-stock products have `hasDiscount = false` even if a discount applies. Prices are stored in USD dollars and converted to cents for Stripe with `Math.round(price * 100)`.
 
 ---
 
@@ -434,15 +441,15 @@ SalesFact
   └─ TimeDim    (day, month, quarter, year, isWeekend, isHoliday)
 ```
 
-This is intentional groundwork. The schema is ready for an ML pipeline to populate `FraudFlag.riskScore` and for a BI tool (Metabase, Superset, Redash) to query `SalesFact` directly.
+The schema is ready for an ML pipeline to populate `FraudFlag.riskScore` and for a BI tool (Metabase, Superset, Redash) to query `SalesFact` directly.
 
 ---
 
 ## Rate Limiting & CSRF
 
-Rate limiting uses Upstash Ratelimit with a sliding window algorithm. It **fails open** — if `UPSTASH_REDIS_REST_URL` is not set, the limiter returns `null` and the request proceeds. In production, set the env vars. In development, you can leave them unset.
+Rate limiting uses ![Upstash](https://img.shields.io/badge/-Upstash_Ratelimit-00C389?logo=upstash&logoColor=white&style=flat-square) with a sliding window algorithm. It **fails open** — if `UPSTASH_REDIS_REST_URL` is not set, the limiter returns `null` and the request proceeds.
 
-CSRF protection uses origin header verification (`verifyCsrfOrigin`). All state-mutating endpoints (`/api/cart/sync`, `/api/cart/merge`, `/api/cart/clear`, `/api/end-session`) verify the `Origin` header against `NEXT_PUBLIC_BASE_URL`. Server-to-server requests with no `Origin` header are allowed.
+CSRF protection uses origin header verification (`verifyCsrfOrigin`). All state-mutating endpoints verify the `Origin` header against `NEXT_PUBLIC_BASE_URL`.
 
 ---
 
@@ -457,10 +464,6 @@ CSRF protection uses origin header verification (`verifyCsrfOrigin`). All state-
 | `/orders` | Dynamic (server, auth-gated) | — |
 | Sanity fetches | `revalidate: 0` via `defineLive` | Live |
 
-Product pages use a 15-minute ISR window (`REVALIDATE_PRODUCT_PAGE_SECONDS = 900`). For a catalogue that changes slowly, this is a reasonable trade-off. Stock levels and prices are always recalculated at checkout time.
-
-The home page ISR at 60 seconds means a newly activated sale is visible within a minute without a full revalidation pipeline.
-
 ---
 
 ## Session Tracking
@@ -471,15 +474,15 @@ Every authenticated page load fires `POST /api/track-session` (from `SessionProv
 2. Finds the most recent active session for that user
 3. Creates a new session if none exists, otherwise updates `deviceInfo`
 
-On sign-out, `POST /api/end-session` closes the active session by setting `endTime`, computing `duration`, and marking `isActive = false`. The Clerk `session.ended` webhook does the same as a backup if the browser tab is closed without a graceful sign-out.
+On sign-out, `POST /api/end-session` closes the active session. The Clerk `session.ended` webhook does the same as a backup if the browser tab is closed without a graceful sign-out.
 
-`useDeviceInfo` (via `ua-parser-js`) runs only on the client, avoiding SSR/hydration mismatch. The device info is a JSON blob in `Session.deviceInfo`.
+`useDeviceInfo` (via `ua-parser-js`) runs only on the client, avoiding SSR/hydration mismatch.
 
 ---
 
 ## Docker
 
-The `Dockerfile` uses a two-stage build:
+The Dockerfile uses a two-stage build:
 
 ```
 Stage 1 (builder): node:22-bullseye
@@ -575,15 +578,11 @@ npm run typegen      # Regenerate sanity.types.ts from schema
 
 The codebase has a few hard rules:
 
-**One mutation path.** All cart mutations go through `mutateCartItem`. Do not reach into `items` or `_persistedItems` directly.
-
-**One pricing function.** All discount logic lives in `getEffectivePrice`. Do not inline discount math anywhere else.
-
-**Migrations over raw SQL.** Every schema change needs a Prisma migration. `LOCAL_DATABASE_URL` is for migration targets. Never point `prisma migrate` at an Accelerate URL.
-
-**Server-only secrets.** `lib/stripe.ts` imports `server-only`. Do not import it from client components.
-
-**No `role` in the user form.** `POST /api/user` accepts only `name` and `address`. Role is set server-side to `CUSTOMER` on create and is never updatable via this route.
+- **One mutation path.** All cart mutations go through `mutateCartItem`. Do not reach into `items` or `_persistedItems` directly.
+- **One pricing function.** All discount logic lives in `getEffectivePrice`. Do not inline discount math anywhere else.
+- **Migrations over raw SQL.** Every schema change needs a Prisma migration. `LOCAL_DATABASE_URL` is for migration targets. Never point `prisma migrate` at an Accelerate URL.
+- **Server-only secrets.** `lib/stripe.ts` imports `server-only`. Do not import it from client components.
+- **No role in the user form.** `POST /api/user` accepts only `name` and `address`. Role is set server-side to `CUSTOMER` on create and is never updatable via this route.
 
 ```bash
 # Before opening a PR
@@ -596,8 +595,18 @@ npm run typegen      # if you touched any Sanity schema or GROQ queries
 
 ## License
 
-This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+This project is licensed under the **GNU Affero General Public License v3.0**.
 
 If you run a modified version of ShopSafe as a network service, you must make your modified source available under the same license.
 
-For commercial licensing (closed-source deployments), contact: [haiderkhan6410@gmail.com](mailto:haiderkhan6410@gmail.com).
+For commercial licensing (closed-source deployments), contact: [haiderkhan6410@gmail.com](mailto:haiderkhan6410@gmail.com)
+
+---
+
+<div align="center">
+
+Made with ❤️ by [Haider Khan](https://github.com/Haiderkhan64)
+
+[![GitHub](https://img.shields.io/badge/GitHub-Haiderkhan64-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Haiderkhan64/ShopSafe)
+
+</div>
