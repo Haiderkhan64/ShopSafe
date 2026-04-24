@@ -19,7 +19,7 @@
 [![Nix](https://img.shields.io/badge/Nix-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://nixos.org/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
 
-A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first — secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
+A production grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
 
 </div>
 
@@ -100,7 +100,7 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 **Two databases. Intentionally.**
 
 - **Sanity** owns the content layer — products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
-- **PostgreSQL** owns the operational layer — user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
+- **PostgreSQL** owns the operational layer user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
 
 ---
 
