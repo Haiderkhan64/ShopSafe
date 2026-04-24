@@ -596,4 +596,8 @@ npm run typegen      # if you touched any Sanity schema or GROQ queries
 
 ## License
 
-MIT
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+If you run a modified version of ShopSafe as a network service, you must make your modified source available under the same license.
+
+For commercial licensing (closed-source deployments), contact: [haiderkhan6410@gmail.com](mailto:haiderkhan6410@gmail.com).
