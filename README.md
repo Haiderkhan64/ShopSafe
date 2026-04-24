@@ -58,7 +58,7 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Browser                                │
-│  Zustand (cart) ──► CartSyncWrapper ──► BroadcastChannel       │
+│  Zustand (cart) ──► CartSyncWrapper ──► BroadcastChannel        │
 │                              │                                  │
 │                    Leader Election                              │
 └──────────────────────────────┼──────────────────────────────────┘
@@ -79,17 +79,17 @@ A production-grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 └───────────┬───────────────────┬─────────────────────────────────┘
             │                   │
      ┌──────▼──────┐    ┌───────▼────────┐
-     │  Sanity CMS │    │  PostgreSQL     │
-     │  (Content)  │    │  via Prisma     │
-     │             │    │                 │
-     │  Products   │    │  Users          │
-     │  Orders     │    │  Sessions       │
-     │  Categories │    │  Cart/CartItems │
-     │  Sales      │    │  Orders         │
-     └─────────────┘    │  Transactions   │
-                        │  FraudFlags     │
-            ┌───────────│  DataWarehouse  │
-            │           └─────────────────┘
+     │  Sanity CMS │    │  PostgreSQL    │
+     │  (Content)  │    │  via Prisma    │
+     │             │    │                │
+     │  Products   │    │  Users         │
+     │  Orders     │    │  Sessions      │
+     │  Categories │    │  Cart/CartItems│
+     │  Sales      │    │  Orders        │
+     └─────────────┘    │  Transactions  │
+                        │  FraudFlags    │
+            ┌───────────│  DataWarehouse │
+            │           └────────────────┘
      ┌──────▼──────┐
      │   Stripe    │
      │  Checkout   │
