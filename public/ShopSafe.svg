@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background circle - Using purple from the second SVG -->
+  <circle cx="100" cy="100" r="90" fill="#574095"/>
+  
+  <!-- Simple Shopping Bag Outline - BIGGER -->
+  <path d="M60 80 L60 130 C60 140 70 140 70 140 L130 140 C130 140 140 140 140 130 L140 80" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-linecap="round" 
+        stroke-width="6"/>
+  
+  <!-- Bag Handles - BIGGER -->
+  <path d="M75 80 L75 60 C75 50 85 50 95 50 L105 50 C115 50 125 50 125 60 L125 80" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-linecap="round" 
+        stroke-width="6"/>
+  
+  <!-- Shield Element (Minimal) - BIGGER -->
+  <path d="M100 70 L75 85 L75 115 C75 130 87 140 100 145 C113 140 125 130 125 115 L125 85 L100 70Z" 
+        fill="#6B46C1"/>
+  
+  <!-- Minimal Checkmark - BIGGER -->
+  <path d="M85 110 L95 120 L115 100" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        stroke-width="4"/>
+  
+  <!-- Text Element in white -->
+  <text fill="#FFFFFF" 
+        font-family="Arial, sans-serif" 
+        font-size="18" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        x="100" 
+        y="170">ShopSafe</text>
+</svg>
