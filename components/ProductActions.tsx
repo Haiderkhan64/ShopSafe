@@ -24,11 +24,6 @@ export default function ProductActions({
         <div className="flex flex-col gap-3">
           <AddToBasketButton product={product} disabled={disabled} />
           {/* Retain trust badges for visual continuity */}
-          <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-            <span>🔒 Secure</span>
-            <span>✓ Genuine sizing</span>
-            <span>✦ Authentic</span>
-          </div>
         </div>
       )}
     </div>
