@@ -6,12 +6,11 @@ import type { PortableTextBlock } from "next-sanity";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { REVALIDATE_PRODUCT_PAGE_SECONDS } from "@/lib/constants";
 import ProductActions from "@/components/ProductActions";
 
 
 
-export const revalidate = REVALIDATE_PRODUCT_PAGE_SECONDS;
+export const revalidate = 900; // 15 minutes
 
 const ProductPage = async ({
   params,
