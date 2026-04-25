@@ -6,7 +6,6 @@ import {
   ShoppingBag,
   Shield,
   Truck,
-  Sparkles,
   TrendingUp,
   Award,
   Star,
@@ -58,13 +57,6 @@ export default async function Home() {
         {/* Hero Content */}
         <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full mb-8 shadow-xl backdrop-blur-sm border-2 border-purple-200 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/90 to-purple-100/90 dark:from-purple-900/40 dark:to-purple-800/40 hover:scale-105 transition-transform duration-300">
-              <Sparkles className="w-4 h-4 text-yellow-500 dark:text-yellow-400 animate-pulse" />
-              <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
-                Welcome to ShopSafe
-              </span>
-              <Flame className="w-4 h-4 text-orange-500 dark:text-orange-400 animate-pulse" />
-            </div>
 
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-8 leading-tight">
               <span className="text-gray-900 dark:text-gray-100 inline-block hover:scale-105 transition-transform duration-300">
@@ -286,13 +278,6 @@ export default async function Home() {
       {/* Newsletter Section */}
       <div className="w-full bg-gradient-to-br from-slate-50 to-purple-50/30 dark:from-slate-950 dark:to-purple-950/30 py-16 transition-colors duration-300">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 bg-purple-100 dark:bg-purple-900/50">
-            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
-              Stay Updated
-            </span>
-          </div>
-
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Get Exclusive Deals &amp; Updates
           </h2>

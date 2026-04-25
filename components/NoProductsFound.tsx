@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, ShoppingBag, Home, Sparkles } from "lucide-react";
+import { Search, ShoppingBag, Home, Gift } from "lucide-react";
 
 const NoProductsFound = () => {
   return (
@@ -69,7 +69,7 @@ const NoProductsFound = () => {
             href="/deals"
             className="group inline-flex items-center justify-center gap-3 px-8 py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border-2 border-purple-600 dark:border-purple-500"
           >
-            <Sparkles className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+             <Gift className="w-6 h-6 text-yellow-500 dark:text-yellow-400 group-hover:rotate-12 transition-transform duration-300" />
             <span>View Deals</span>
           </Link>
         </div>
@@ -129,7 +129,7 @@ const NoProductsFound = () => {
 
           <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all duration-300">
             <div className="w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center bg-yellow-100 dark:bg-yellow-900/50">
-              <Sparkles className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+               <Gift className="w-6 h-6 text-yellow-500 dark:text-yellow-400 group-hover:rotate-12 transition-transform duration-300" />
             </div>
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Daily Deals

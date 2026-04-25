@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const parsed = userUpdateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
+      return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
     }
 
     // Explicit allow-list — never spread parsed.data into a Prisma write.

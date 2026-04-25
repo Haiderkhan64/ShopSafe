@@ -2,7 +2,7 @@
 
 import type { Product } from "@/sanity.types";
 import useBasketStore, { isCartSyncAborted } from "@/store";
-import { ShoppingBag, Sparkles, Ruler, Shield } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { ReactElement, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
@@ -105,21 +105,6 @@ export default function AddToButtons({ product, disabled }: AddToButtonsProps): 
                   : "Add to Cart"}
         </span>
       </button>
-
-      <div
-        className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400"
-        aria-hidden="true"
-      >
-        <span className="flex items-center gap-1">
-          <Shield className="w-3 h-3" /> Secure checkout
-        </span>
-        <span className="flex items-center gap-1">
-          <Ruler className="w-3 h-3" /> Genuine sizing
-        </span>
-        <span className="flex items-center gap-1">
-          <Sparkles className="w-3 h-3" /> Authentic products
-        </span>
-      </div>
     </div>
   );
 }

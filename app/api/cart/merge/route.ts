@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const parsed = MergeBodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request body", details: parsed.error.errors },
+        { error: "Invalid request body", details: parsed.error.issues },
         { status: 400 }
       );
     }
