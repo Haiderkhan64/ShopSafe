@@ -1,7 +1,7 @@
 import NoProductsFound from "@/components/NoProductsFound";
 import ProductGrid from "@/components/ProductGrid";
 import { searchProductsByName } from "@/sanity/lib/products/searchProductsByName";
-import { Search, Sparkles, Filter, TrendingUp, ArrowLeft } from "lucide-react";
+import { Search, Filter, TrendingUp, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { FC } from "react";
 
@@ -106,12 +106,10 @@ const SearchPage: FC<SearchParams> = async ({
                     "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)",
                 }}
               >
-                <Sparkles className="w-5 h-5 text-yellow-600 dark:text-yellow-500 animate-pulse" />
                 <span className="text-base font-bold text-yellow-900 dark:text-yellow-800">
                   {products.length}{" "}
                   {products.length === 1 ? "Product" : "Products"} Found
                 </span>
-                <TrendingUp className="w-5 h-5 text-yellow-600 dark:text-yellow-500" />
               </div>
             </div>
           </div>
@@ -198,11 +196,6 @@ const SearchPage: FC<SearchParams> = async ({
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   <span className="font-medium">All items in stock</span>
-                </div>
-                <div className="hidden md:block w-1 h-1 rounded-full bg-gray-400" />
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span className="font-medium">Fast shipping available</span>
                 </div>
                 <div className="hidden md:block w-1 h-1 rounded-full bg-gray-400" />
                 <div className="flex items-center gap-2">

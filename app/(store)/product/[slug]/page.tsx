@@ -5,7 +5,6 @@ import { getProductBySlug } from "@/sanity/lib/products/getProductBySlug";
 import type { PortableTextBlock } from "next-sanity";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import ProductActions from "@/components/ProductActions";
 
 
@@ -115,7 +114,6 @@ const ProductPage = async ({
               {hasDiscount && (
                 <div className="absolute top-4 left-4 z-20">
                   <div className="flex items-center gap-1 px-3 py-2 rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-r from-yellow-400 to-orange-400 dark:from-yellow-500 dark:to-orange-500">
-                    <Sparkles className="w-4 h-4 text-yellow-900 dark:text-yellow-950" />
                     <span className="text-sm font-bold text-yellow-900 dark:text-yellow-950">
                       {effectiveDiscount}% OFF
                     </span>
