@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 import Loading from "./loading";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Sparkles, Shield, Zap } from "lucide-react";
+import { Shield, Zap } from "lucide-react";
 
 const AUTH_PARTICLES = [
   { left: "5%",  top: "10%", delay: "0.0s", duration: "3.5s" },
@@ -307,15 +307,6 @@ export default function AuthLayout({
                 </div>
                 <div className="text-left">
                   <p className="text-xs font-bold text-foreground">Instant Access</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 group cursor-default">
-                <div className="inline-flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-100 to-pink-200 dark:from-purple-900/50 dark:to-pink-800/50 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-bold text-foreground">Premium</p>
                 </div>
               </div>
             </div>
