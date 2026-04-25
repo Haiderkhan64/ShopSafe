@@ -43,7 +43,7 @@
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.73.1",
     "sanity": "^3.86.1",
-    "stripe": "^18.1.0",
+    "stripe": "^22.1.0",
     "styled-components": "^6.4.1",
     "svix": "^1.92.2",
     "tailwind-merge": "^3.5.0",
