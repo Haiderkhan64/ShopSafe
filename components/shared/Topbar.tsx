@@ -3,7 +3,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ClerkLoaded,
-  SignedIn,
   SignInButton,
   UserButton,
   useUser,
@@ -150,7 +149,7 @@ const TopBar = () => {
           <div className="hidden md:flex items-center gap-4 lg:gap-6">
             <ThemeToggle />
 
-            <SignedIn>
+            {user && (
               <Link
                 href="/orders"
                 className="flex flex-col items-center gap-1 hover:scale-110 transition-transform group"
@@ -158,7 +157,7 @@ const TopBar = () => {
                 <Package className="h-6 w-6 text-white group-hover:text-yellow-300 transition-colors" />
                 <span className="text-xs text-white font-medium">Orders</span>
               </Link>
-            </SignedIn>
+            )}
 
             <Link
               href="/basket"
@@ -307,7 +306,7 @@ const TopBar = () => {
             )}
 
             <div className="space-y-3">
-              <SignedIn>
+              {user && (
                 <Link
                   href="/orders"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-760 transition-colors"
@@ -316,7 +315,7 @@ const TopBar = () => {
                   <Package className="h-5 w-5" style={{ color: "#6B46C1" }} />
                   <span className="font-semibold text-gray-900 dark:text-gray-100">My Orders</span>
                 </Link>
-              </SignedIn>
+              )}
 
               <Link
                 href="/basket"
