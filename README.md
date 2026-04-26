@@ -260,7 +260,7 @@ Create `.env.local` at the project root:
 # Sanity
 NEXT_PUBLIC_SANITY_PROJECT_ID=your_project_id
 NEXT_PUBLIC_SANITY_DATASET=production
-NEXT_PUBLIC_SANITY_API_VERSION=2024-01-01
+NEXT_PUBLIC_SANITY_API_VERSION=2026-04-27
 SANITY_API_TOKEN=your_write_token
 SANITY_API_READ_TOKEN=your_read_token
 
@@ -500,7 +500,7 @@ Stage 3 (runner): node:22-bullseye
 docker build \
   --build-arg NEXT_PUBLIC_SANITY_PROJECT_ID=xxx \
   --build-arg NEXT_PUBLIC_SANITY_DATASET=production \
-  --build-arg NEXT_PUBLIC_SANITY_API_VERSION=2024-01-01 \
+  --build-arg NEXT_PUBLIC_SANITY_API_VERSION=2026-04-27 \
   --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com \
   --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx \
   -t shopsafe:latest .
