@@ -1,6 +1,6 @@
 # =============================================================================
 #  ShopSafe — Production Dockerfile
-#  Stack: Next.js 15 · Prisma · Sanity · Clerk · Stripe
+#  Stack: Next.js 16 · Prisma · Sanity · Clerk · Stripe
 #
 #  BEFORE BUILDING — add this to next.config.ts:
 #    const nextConfig: NextConfig = {

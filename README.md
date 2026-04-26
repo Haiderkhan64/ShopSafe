@@ -76,25 +76,20 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 │  ├─ (auth)/                                                     │
 │  └─ studio/          Server Actions                             │
 │                      └─ createCheckoutSession                   │
-└───────────┬───────────────────┬─────────────────────────────────┘
-            │                   │
-     ┌──────▼──────┐    ┌───────▼────────┐
-     │  Sanity CMS │    │  PostgreSQL    │
-     │  (Content)  │    │  via Prisma    │
-     │             │    │                │
-     │  Products   │    │  Users         │
+└───────────┬───────────────────┬───────────────────┬─────────────┘
+            │                   │                   │
+     ┌──────▼──────┐    ┌───────▼────────┐    ┌─────▼───────┐
+     │  Sanity CMS │    │  PostgreSQL    │    │   Stripe    │
+     │  (Content)  │    │  via Prisma    │    │  Checkout   │
+     │             │    │                │    │  Webhooks   │
+     │  Products   │    │  Users         │    └─────────────┘
      │  Orders     │    │  Sessions      │
      │  Categories │    │  Cart/CartItems│
      │  Sales      │    │  Orders        │
      └─────────────┘    │  Transactions  │
                         │  FraudFlags    │
-            ┌───────────│  DataWarehouse │
-            │           └────────────────┘
-     ┌──────▼──────┐
-     │   Stripe    │
-     │  Checkout   │
-     │  Webhooks   │
-     └─────────────┘
+                        │  DataWarehouse │
+                        └────────────────┘
 ```
 
 **Two databases. Intentionally.**
