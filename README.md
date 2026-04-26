@@ -6,7 +6,7 @@
 
 **Secure shopping, smart pricing, fraud-aware from day one.**
 
-[![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Sanity](https://img.shields.io/badge/Sanity-F03E2F?style=for-the-badge&logo=sanity&logoColor=white)](https://www.sanity.io/)
 [![Stripe](https://img.shields.io/badge/Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white)](https://stripe.com/)
@@ -19,7 +19,7 @@
 [![Nix](https://img.shields.io/badge/Nix-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://nixos.org/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
 
-A production grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
+A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first secure checkout, idempotent webhooks, serializable cart merges, and a fraud-detection data model baked in from day one.
 
 </div>
 
@@ -64,7 +64,7 @@ A production grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 └──────────────────────────────┼──────────────────────────────────┘
                                │ HTTPS
 ┌──────────────────────────────▼──────────────────────────────────┐
-│                        Next.js 15                               │
+│                        Next.js 16                               │
 │                                                                 │
 │  App Router          API Routes            Middleware           │
 │  ├─ (store)/         ├─ /api/cart/*        ├─ Clerk auth        │
@@ -108,7 +108,7 @@ A production grade e-commerce platform built on Next.js 15, Sanity CMS, Stripe, 
 
 | Layer | Choice | Why |
 |---|---|---|
-| ![Next.js](https://img.shields.io/badge/-Next.js_15-000?logo=nextdotjs&logoColor=white&style=flat-square) **Framework** | Next.js 15 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
+| ![Next.js](https://img.shields.io/badge/-Next.js_16-000?logo=nextdotjs&logoColor=white&style=flat-square) **Framework** | Next.js 16 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
 | ![Sanity](https://img.shields.io/badge/-Sanity-F03E2F?logo=sanity&logoColor=white&style=flat-square) **CMS** | Sanity v3 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
 | ![Clerk](https://img.shields.io/badge/-Clerk-6C47FF?logo=clerk&logoColor=white&style=flat-square) **Auth** | Clerk | Passkey support, webhooks for user lifecycle, session JWTs |
 | ![Stripe](https://img.shields.io/badge/-Stripe-635BFF?logo=stripe&logoColor=white&style=flat-square) **Payments** | Stripe Checkout | Idempotent sessions, webhook-driven order creation |
@@ -482,24 +482,36 @@ On sign-out, `POST /api/end-session` closes the active session. The Clerk `sessi
 
 ## Docker
 
-The Dockerfile uses a two-stage build:
+The Dockerfile uses a three-stage build:
 
 ```
-Stage 1 (builder): node:22-bullseye
-  - npm ci
-  - prisma generate (for debian-openssl-1.1.x)
-  - next build
+Stage 1 (deps): node:22-bullseye
+  - npm ci --prefer-offline
+  - prisma generate
 
-Stage 2 (runtime): node:22-bullseye
-  - copy .next, node_modules, public, prisma
-  - prisma generate again (runtime binary)
+Stage 2 (builder): node:22-bullseye
+  - copies node_modules from deps stage
+  - injects NEXT_PUBLIC_* build args
+  - next build → .next/standalone output
+
+Stage 3 (runner): node:22-bullseye
+  - non-root user nextjs:1001
+  - dumb-init as PID 1 for graceful SIGTERM handling
+  - copies .next/standalone, .next/static, public, prisma
   - EXPOSE 3000
-  - HEALTHCHECK via http.get
+  - HEALTHCHECK via http.get /
 ```
 
 ```bash
-docker build -t shopsafe .
-docker run -p 3000:3000 --env-file .env.local shopsafe
+docker build \
+  --build-arg NEXT_PUBLIC_SANITY_PROJECT_ID=xxx \
+  --build-arg NEXT_PUBLIC_SANITY_DATASET=production \
+  --build-arg NEXT_PUBLIC_SANITY_API_VERSION=2024-01-01 \
+  --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com \
+  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx \
+  -t shopsafe:latest .
+
+docker run -p 3000:3000 --env-file .env.production shopsafe:latest
 ```
 
 ---

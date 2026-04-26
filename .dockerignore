@@ -4,20 +4,20 @@
 #  Docker daemon, which speeds up `docker build` and prevents secrets leaking.
 # =============================================================================
 
-# ── Secrets & local config (NEVER send to daemon) ──────────────────────────
+# Secrets & local config (NEVER send to daemon)
 .env
 .env.*
-!.env.example          # allow the example file through for documentation
+!.env.example
 *.pem
 *.key
 secrets/
 
-# ── Version control ─────────────────────────────────────────────────────────
+# Version control
 .git
 .gitignore
 .gitattributes
 
-# ── Node / npm ───────────────────────────────────────────────────────────────
+# Node / npm
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -25,14 +25,14 @@ yarn-error.log*
 .yarn/
 .pnp.*
 
-# ── Next.js build output (rebuilt inside Docker) ─────────────────────────────
+# Next.js build output (rebuilt inside Docker)
 .next/
 out/
 
-# ── Local dev database (Nix / flake) ─────────────────────────────────────────
+# Local dev database (Nix / flake)
 .devdb/
 
-# ── Test & coverage ──────────────────────────────────────────────────────────
+# Test & coverage
 __tests__/
 *.test.ts
 *.test.tsx
@@ -41,7 +41,7 @@ __tests__/
 coverage/
 .nyc_output/
 
-# ── Editor & OS artifacts ────────────────────────────────────────────────────
+# Editor & OS artifacts
 .DS_Store
 .vscode/
 .idea/
@@ -49,18 +49,18 @@ coverage/
 *.swo
 Thumbs.db
 
-# ── CI / tooling ─────────────────────────────────────────────────────────────
+# CI / tooling
 .github/
 .husky/
 .eslintcache
 .prettiercache
 
-# ── Documentation ────────────────────────────────────────────────────────────
+# Documentation
 *.md
-!README.md             # keep the top-level README if you want it in the image
+!README.md
 docs/
 
-# ── Miscellaneous ────────────────────────────────────────────────────────────
+# Miscellaneous
 Dockerfile*
 docker-compose*.yml
 .dockerignore
