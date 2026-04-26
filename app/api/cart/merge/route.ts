@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // FIX: Wrap the entire read-modify-write in a serialisable transaction so
+    // Wrap the entire read-modify-write in a serialisable transaction so
     // concurrent merge requests from multiple tabs cannot interleave and
     // double-count quantities.  We use a Postgres advisory lock keyed on a
     // stable hash of the internal user id so only one merge per user runs at

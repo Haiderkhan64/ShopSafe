@@ -10,7 +10,7 @@ const OnboardingPage = async () => {
     redirect("/sign-in");
   }
 
-  // FIX 8: look up by clerkId, not by internal id.
+  // look up by clerkId, not by internal id.
   const existingUser = await prisma.user.findUnique({
     where: { clerkId: user.id },
     select: { hasCompletedOnboarding: true },

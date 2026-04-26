@@ -279,7 +279,7 @@ const Orders = async ({}): Promise<ReactElement> => {
                           </div>
                           <div className="flex-1">
                             <p className="font-bold mb-1 text-base text-yellow-900 dark:text-yellow-300">
-                              🎉 Discount Applied:{" "}
+                              Discount Applied:{" "}
                               {formatCurrency(order.amountDiscount)}
                             </p>
                             <p className="text-gray-700 dark:text-gray-300 text-sm">

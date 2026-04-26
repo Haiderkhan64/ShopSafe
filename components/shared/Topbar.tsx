@@ -71,7 +71,7 @@ const TopBar = () => {
 
     abortCartSync();
 
-    // ── STEP 1: End session tracking (Clerk token still valid) ────────────────
+    // End session tracking (Clerk token still valid)
     try {
       await fetch("/api/end-session", {
         method: "POST",
@@ -84,7 +84,7 @@ const TopBar = () => {
     }
     useBasketStore.getState().clearBasket();
 
-    // ── STEP 3: Invalidate Clerk token LAST ───────────────────────────────────
+    // Invalidate Clerk token LAST
     await signOut({ redirectUrl: "/" });
   };
 

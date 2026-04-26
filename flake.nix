@@ -84,7 +84,7 @@ EOF
           fi
 
           echo ""
-          echo "  ✅ PostgreSQL ready"
+          echo "  ✓ PostgreSQL ready"
           echo "     socket  : $PGRUN"
           echo "     port    : ${pgPort}"
           echo "     user    : ${pgUser}"
@@ -195,11 +195,11 @@ EOF
             fi
           done
           if [[ ''${#MISSING[@]} -gt 0 ]]; then
-            echo "❌ Missing environment variables:"
+            echo "✘ Missing environment variables:"
             for v in "''${MISSING[@]}"; do echo "   • $v"; done
             exit 1
           fi
-          echo "✅ All required environment variables are set"
+          echo "✓ All required environment variables are set"
           echo ""
           echo "  DATABASE_URL (runtime/Accelerate) : ''${DATABASE_URL:0:60}…"
           echo "  LOCAL_DATABASE_URL (migrations)   : $LOCAL_DATABASE_URL"
