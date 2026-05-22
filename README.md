@@ -94,7 +94,7 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 
 **Two databases. Intentionally.**
 
-- **Sanity** owns the content layer — products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
+- **Sanity** owns the content layer products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
 - **PostgreSQL** owns the operational layer user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
 
 ---
@@ -122,9 +122,9 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 ```
 .
 ├── app/
-│   ├── (auth)/              # Sign-in, sign-up, onboarding — isolated Clerk theme
+│   ├── (auth)/              # Sign-in, sign-up, onboarding isolated Clerk theme
 │   ├── (store)/             # Main storefront routes
-│   │   ├── page.tsx         # Home — ISR 60s
+│   │   ├── page.tsx         # Home ISR 60s
 │   │   ├── basket/          # Client cart page
 │   │   ├── categories/[slug]/
 │   │   ├── orders/          # Server-rendered order history
@@ -138,7 +138,7 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 │   │   ├── set-onboarded/   # Cookie fast-path after onboarding
 │   │   ├── stripe/webhook/  # Idempotent checkout.session.completed handler
 │   │   ├── track-session/   # Device/browser session recording
-│   │   └── user/            # CRUD — self and admin [id] variants
+│   │   └── user/            # CRUD self and admin [id] variants
 │   ├── studio/              # Sanity Studio embedded in Next.js
 │   └── layout.tsx           # Root: ThemeProvider > ClerkProviderWrapper > SessionProvider
 │
@@ -156,21 +156,21 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 │   └── lib/
 │       ├── client.ts        # CDN client (reads)
 │       ├── backendClient.ts # Write client (webhook only)
-│       ├── live.ts          # defineLive — revalidate: 0
+│       ├── live.ts          # defineLive revalidate: 0
 │       └── products/        # getAllProducts, getProductBySlug, search, categories
 │       └── sales/           # getActiveSales, getBestDiscount, getByCoupon
 │
 ├── lib/
-│   ├── getEffectivePrice.ts # Single pricing function — product discount wins over sale
+│   ├── getEffectivePrice.ts # Single pricing function product discount wins over sale
 │   ├── prisma.ts            # Singleton PrismaClient with dev query logging
 │   ├── rate-limit.ts        # Upstash wrapper + verifyCsrfOrigin
 │   ├── stripe.ts            # server-only Stripe instance
 │   └── constants.ts         # MAX_CART_QUANTITY, PAGE_SIZE, revalidate periods
 │
-├── store/index.ts           # Zustand cart store — the most complex file
+├── store/index.ts           # Zustand cart store the most complex file
 ├── hooks/
 │   ├── useCartSync.ts       # BroadcastChannel leader election + auth-state sync
-│   └── useDeviceInfo.ts     # UAParser — client-only, prevents SSR mismatch
+│   └── useDeviceInfo.ts     # UAParser client-only, prevents SSR mismatch
 │
 ├── actions/
 │   └── createCheckoutSession.ts  # Server Action: fetches live sale price, creates Stripe session
@@ -280,7 +280,7 @@ LOCAL_DATABASE_URL=postgresql://postgres@localhost:5433/shopsafe?host=/path/to/.
 # App
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-# Optional — rate limiting. Fails open (disabled) if not set.
+# Optional rate limiting. Fails open (disabled) if not set.
 UPSTASH_REDIS_REST_URL=https://...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
@@ -327,7 +327,7 @@ Sanity Studio is available at `/studio`.
 
 ### Why Two Databases?
 
-Sanity is a content platform. PostgreSQL is an operational database. Mixing product descriptions and fraud scores in the same store would be the wrong abstraction. Sanity handles the CMS workflow — editors, live preview, schema evolution. Postgres handles the transactional workload — cart atomicity, session tracking, fraud flags — where ACID guarantees matter.
+Sanity is a content platform. PostgreSQL is an operational database. Mixing product descriptions and fraud scores in the same store would be the wrong abstraction. Sanity handles the CMS workflow editors, live preview, schema evolution. Postgres handles the transactional workload cart atomicity, session tracking, fraud flags where ACID guarantees matter.
 
 Orders exist in both: Sanity holds the customer-facing order document (queried by `getMyOrders`), Postgres holds the operational record for analytics and fraud detection.
 
@@ -341,7 +341,7 @@ Every authenticated request passes through `proxy.ts`. The fast-path: two HTTP-o
 
 ### Cart Invariant
 
-`items[]` and `_persistedItems[]` are kept in strict sync by a single mutation path (`mutateCartItem`). `items` holds full `Product` objects for rendering. `_persistedItems` holds `{ productId, quantity }` — the only thing persisted to localStorage. The invariant is asserted on every mutation in development.
+`items[]` and `_persistedItems[]` are kept in strict sync by a single mutation path (`mutateCartItem`). `items` holds full `Product` objects for rendering. `_persistedItems` holds `{ productId, quantity }` the only thing persisted to localStorage. The invariant is asserted on every mutation in development.
 
 ---
 
@@ -373,8 +373,8 @@ SELECT pg_advisory_xact_lock(
 
 New users are created in two possible paths:
 
-1. **`POST /api/track-session`** — fires after Clerk loads, uses session claims to create the user record if an email claim is available.
-2. **`POST /api/user`** — the onboarding form. Always creates/updates the user with the verified Clerk email from `currentUser()`. Sets `hasCompletedOnboarding = true` and writes the fast-path cookies.
+1. **`POST /api/track-session`** fires after Clerk loads, uses session claims to create the user record if an email claim is available.
+2. **`POST /api/user`** the onboarding form. Always creates/updates the user with the verified Clerk email from `currentUser()`. Sets `hasCompletedOnboarding = true` and writes the fast-path cookies.
 
 The proxy ensures no authenticated user reaches any store page without completing onboarding. Passkey creation is available in the navbar for users who haven't enrolled one yet.
 
@@ -441,7 +441,7 @@ The schema is ready for an ML pipeline to populate `FraudFlag.riskScore` and for
 
 ## Rate Limiting & CSRF
 
-Rate limiting uses ![Upstash](https://img.shields.io/badge/-Upstash_Ratelimit-00C389?logo=upstash&logoColor=white&style=flat-square) with a sliding window algorithm. It **fails open** — if `UPSTASH_REDIS_REST_URL` is not set, the limiter returns `null` and the request proceeds.
+Rate limiting uses ![Upstash](https://img.shields.io/badge/-Upstash_Ratelimit-00C389?logo=upstash&logoColor=white&style=flat-square) with a sliding window algorithm. It **fails open** if `UPSTASH_REDIS_REST_URL` is not set, the limiter returns `null` and the request proceeds.
 
 CSRF protection uses origin header verification (`verifyCsrfOrigin`). All state-mutating endpoints verify the `Origin` header against `NEXT_PUBLIC_BASE_URL`.
 
