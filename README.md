@@ -29,7 +29,7 @@ A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, 
 **Storefront walkthrough:**
 https://github.com/user-attachments/assets/4e75a95e-abc4-473a-b4e8-cdc9c943e974
 
-**Sanity Studio
+**Sanity Studio:**
 https://github.com/user-attachments/assets/9a61007f-8421-4274-bd71-25bcc2b05779
 
 ---
