@@ -18,9 +18,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
 
-// ---------------------------------------------------------------------------
-// Design tokens for this page
-// ---------------------------------------------------------------------------
+
 // Brand purple used the same way it is in Loader.tsx / orders/page.tsx:
 // solid gradients stay as literal hex (they already read fine on both
 // themes), while surfaces, borders and text follow the app's existing
@@ -36,9 +34,7 @@ const BRAND = {
 const PAGE_BACKGROUND_CLASS =
   "min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-indigo-50/20 dark:from-slate-950 dark:via-purple-950/30 dark:to-indigo-950/20 transition-colors duration-300";
 
-// ---------------------------------------------------------------------------
-// Presentational subcomponents
-// ---------------------------------------------------------------------------
+
 // Split out of the page's return purely for readability — none of these are
 // reused elsewhere, so they stay in this file rather than becoming separate
 // modules.
@@ -239,9 +235,6 @@ function ReceiptFooterActions() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export default function PaymentSuccess() {
   const searchParams = useSearchParams();
