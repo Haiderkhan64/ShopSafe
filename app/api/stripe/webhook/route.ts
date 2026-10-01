@@ -51,6 +51,14 @@ async function handleCheckoutCompleted(
   stripeEventId: string,
   session: Stripe.Checkout.Session
 ) {
+  // Delayed payment methods fire this event before funds arrive.
+  if (session.payment_status !== "paid") {
+    console.log(
+      `[stripe-webhook] Session ${session.id} not paid yet (${session.payment_status}), skipping`
+    );
+    return;
+  }
+
   try {
     await prisma.processedWebhookEvent.create({
       data: { eventId: stripeEventId, eventType: "checkout.session.completed" },
