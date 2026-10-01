@@ -19,7 +19,7 @@
 [![Nix](https://img.shields.io/badge/Nix-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://nixos.org/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
 
-A production grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first secure checkout, idempotent webhooks, serializable cart merges, and a fraud-ready data model built in from the start.
+A production-grade e-commerce platform built on Next.js 16, Sanity CMS, Stripe, Clerk, and PostgreSQL. Designed for correctness first: secure checkout, idempotent webhooks, serializable cart merges, and a fraud-ready data model built in from the start.
 
 </div>
 
