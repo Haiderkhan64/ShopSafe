@@ -51,33 +51,33 @@ async function handleCheckoutCompleted(
   stripeEventId: string,
   session: Stripe.Checkout.Session
 ) {
-
   try {
     await prisma.processedWebhookEvent.create({
-      data: {
-        eventId: stripeEventId,
-        eventType: "checkout.session.completed",
-      },
+      data: { eventId: stripeEventId, eventType: "checkout.session.completed" },
     });
   } catch (error: unknown) {
-    // P2002 = unique constraint violation → already processed.
     if (
       error instanceof Error &&
       "code" in error &&
       (error as { code: string }).code === "P2002"
     ) {
-      console.log(
-        `[stripe-webhook] Skipping duplicate event ${stripeEventId}`
-      );
+      console.log(`[stripe-webhook] Skipping duplicate event ${stripeEventId}`);
       return;
     }
-    // Any other DB error — re-throw so the outer handler returns 500 and
-    // Stripe will retry.
     throw error;
   }
 
-  // Exactly one concurrent handler reaches here.
-  await createOrderInSanity(session);
+  try {
+    await createOrderInSanity(session);
+  } catch (error) {
+    // Release the claim so Stripe's retry can run the work again.
+    await prisma.processedWebhookEvent
+      .delete({ where: { eventId: stripeEventId } })
+      .catch((e) =>
+        console.error(`[stripe-webhook] Failed to release claim ${stripeEventId}:`, e)
+      );
+    throw error; // outer handler returns 500 → Stripe retries
+  }
 
   const metadata = session.metadata as Metadata;
   if (metadata?.clerkUserId) {
