@@ -4,7 +4,7 @@
 
 # ShopSafe
 
-**Secure shopping and Smart pricing.**
+**Secure shopping and smart pricing.**
 
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -77,7 +77,7 @@ https://github.com/user-attachments/assets/9a61007f-8421-4274-bd71-25bcc2b05779
 ┌──────────────────────────────▼──────────────────────────────────┐
 │                        Next.js 16                               │
 │                                                                 │
-│  App Router          API Routes            Middleware           │
+│  App Router          API Routes            Proxy                │
 │  ├─ (store)/         ├─ /api/cart/*        ├─ Clerk auth        │
 │  │  ├─ page.tsx      ├─ /api/user          ├─ Onboarding gate   │
 │  │  ├─ product/      ├─ /api/stripe/       └─ Cookie fast-path  │
@@ -105,8 +105,8 @@ https://github.com/user-attachments/assets/9a61007f-8421-4274-bd71-25bcc2b05779
 
 **Two databases. Intentionally.**
 
-- **Sanity** owns the content layer products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
-- **PostgreSQL** owns the operational layer user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
+- **Sanity** owns the content layer: products, categories, orders (the customer-facing record), and active sales. It is the source of truth for what a product *is* and what it *costs*.
+- **PostgreSQL** owns the operational layer: user accounts, sessions, the server-side cart, fraud flags, and a full star-schema data warehouse for analytics. Prisma Accelerate sits in front of it in production for connection pooling.
 
 ---
 
@@ -115,15 +115,15 @@ https://github.com/user-attachments/assets/9a61007f-8421-4274-bd71-25bcc2b05779
 | Layer | Choice | Why |
 |---|---|---|
 | ![Next.js](https://img.shields.io/badge/-Next.js_16-000?logo=nextdotjs&logoColor=white&style=flat-square) **Framework** | Next.js 16 (App Router, Turbopack) | RSC + Server Actions remove whole categories of fetch-on-client bugs |
-| ![Sanity](https://img.shields.io/badge/-Sanity-F03E2F?logo=sanity&logoColor=white&style=flat-square) **CMS** | Sanity v3 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
+| ![Sanity](https://img.shields.io/badge/-Sanity-F03E2F?logo=sanity&logoColor=white&style=flat-square) **CMS** | Sanity v5 with Live Content API | Real-time content, typed GROQ queries via TypeGen |
 | ![Clerk](https://img.shields.io/badge/-Clerk-6C47FF?logo=clerk&logoColor=white&style=flat-square) **Auth** | Clerk | Passkey support, webhooks for user lifecycle, session JWTs |
-| ![Stripe](https://img.shields.io/badge/-Stripe-635BFF?logo=stripe&logoColor=white&style=flat-square) **Payments** | Stripe Checkout | Idempotent sessions, webhook-driven order creation |
+| ![Stripe](https://img.shields.io/badge/-Stripe-635BFF?logo=stripe&logoColor=white&style=flat-square) **Payments** | Stripe Checkout | Hosted checkout, webhook-driven order creation |
 | ![Prisma](https://img.shields.io/badge/-Prisma-2D3748?logo=prisma&logoColor=white&style=flat-square) **ORM** | Prisma 6 | Type-safe schema, migration history, Accelerate compatibility |
 | ![PostgreSQL](https://img.shields.io/badge/-PostgreSQL_16-4169E1?logo=postgresql&logoColor=white&style=flat-square) **Database** | PostgreSQL 16 | SERIALIZABLE transactions for cart merge, advisory locks |
 | ![Zustand](https://img.shields.io/badge/-Zustand-433e38?logo=react&logoColor=white&style=flat-square) **State** | Zustand + persist middleware | Offline-first cart with zero-flash hydration |
 | ![Tailwind](https://img.shields.io/badge/-Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white&style=flat-square) **Styling** | Tailwind CSS v3 + shadcn/ui | Utility-first, dark mode via class strategy |
 | ![Upstash](https://img.shields.io/badge/-Upstash_Redis-00C389?logo=upstash&logoColor=white&style=flat-square) **Rate Limiting** | Upstash Redis (Ratelimit) | Serverless-safe sliding window, fails open gracefully |
-| ![Docker](https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white&style=flat-square) **Containerization** | Docker multi-stage build | Slim production image, Prisma engines pre-generated |
+| ![Docker](https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white&style=flat-square) **Containerization** | Docker multi-stage build | Prisma engines pre-generated, non-root runtime, `dumb-init` for clean shutdowns |
 | ![Nix](https://img.shields.io/badge/-Nix-5277C3?logo=nixos&logoColor=white&style=flat-square) **Dev Environment** | Nix flake | Reproducible shell, pinned Node 22 + PostgreSQL 16, local `pg_ctl` scripts |
 
 ---
@@ -338,7 +338,7 @@ Sanity Studio is available at `/studio`.
 
 ### Why Two Databases?
 
-Sanity is a content platform. PostgreSQL is an operational database. Mixing product descriptions and fraud scores in the same store would be the wrong abstraction. Sanity handles the CMS workflow editors, live preview, schema evolution. Postgres handles the transactional workload cart atomicity, session tracking, fraud flags where ACID guarantees matter.
+Sanity is a content platform. PostgreSQL is an operational database. Mixing product descriptions and fraud scores in the same store would be the wrong abstraction. Sanity handles the CMS workflow: editors, live preview, schema evolution. Postgres handles the transactional workload: cart atomicity, session tracking, fraud flags where ACID guarantees matter.
 
 Orders exist in both: Sanity holds the customer-facing order document (queried by `getMyOrders`), Postgres holds the operational record for analytics and fraud detection.
 
@@ -348,7 +348,7 @@ The internal `User.id` is a cuid generated by Prisma. `User.clerkId` is the exte
 
 ### Onboarding Gate
 
-Every authenticated request passes through `proxy.ts`. The fast-path: two HTTP-only cookies (`onboarding_complete=1` and `ob_verified=<sessionId>`) skip the DB lookup for the vast majority of requests. On cold start or new session, the middleware redirects to `/api/set-onboarded` which hits Postgres once and sets the cookies.
+Every authenticated request passes through `proxy.ts`. The fast-path: two HTTP-only cookies (`onboarding_complete=1` and `ob_verified=<sessionId>`) skip the DB lookup for the vast majority of requests. On cold start or new session, the Proxy redirects to `/api/set-onboarded` which hits Postgres once and sets the cookies.
 
 ### Cart Invariant
 
@@ -395,7 +395,11 @@ The proxy ensures no authenticated user reaches any store page without completin
 
 ### Idempotency
 
-The Stripe webhook handler inserts a `ProcessedWebhookEvent` row before doing any work. If Stripe retries the delivery, the second attempt hits a unique constraint (`P2002`) and returns `200` immediately without creating a duplicate order.
+The Stripe webhook handler inserts a `ProcessedWebhookEvent` row before doing any work. If Stripe retries a delivery that already succeeded, the second attempt hits a unique constraint (`P2002`) and is skipped without creating a duplicate order.
+
+If the Sanity order write fails after the row is inserted, the handler deletes the row and returns `500`, so Stripe's retry runs the work again. The order document uses `createIfNotExists` with a deterministic ID (`order-<sessionId>`), so repeating the write is safe.
+
+Sessions that are not yet paid (`payment_status !== "paid"`) are skipped before the row is inserted.
 
 ```typescript
 // First delivery: creates row, proceeds
@@ -587,7 +591,7 @@ npm run typegen      # Regenerate sanity.types.ts from schema
 | `POST` | `/api/end-session` | Required | Close active session on sign-out |
 | `POST` | `/api/end-session/webhook` | Svix sig | Clerk webhook: `session.ended`, `user.deleted` |
 | `POST` | `/api/stripe/webhook` | Stripe sig | Stripe webhook: `checkout.session.completed` |
-| `GET` | `/api/set-onboarded` | Required | Middleware redirect: verify onboarding, set cookies |
+| `GET` | `/api/set-onboarded` | Required | Proxy redirect: verify onboarding, set cookies |
 
 ---
 
